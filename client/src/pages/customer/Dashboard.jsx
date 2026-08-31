@@ -86,6 +86,13 @@ const CustomerDashboard = () => {
     fetchProfile();
     fetchCatalog();
     fetchOrders();
+
+    // Live auto-sync interval for customer dashboard
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 3500);
+
+    return () => clearInterval(interval);
   }, [navigate]);
 
   // Fetch logged in customer profile from backend

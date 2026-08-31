@@ -118,15 +118,20 @@ router.post('/orders', (req, res) => {
   }
 
   let customer = db.findOne('users', u => u.id === req.user.id);
-  if (!customer && req.user.mobile) {
-    customer = db.findOne('users', u => u.mobile === req.user.mobile);
+  const normalizedUserMobile = req.user.mobile ? req.user.mobile.toString().replace(/\D/g, '').slice(-10) : '';
+
+  if (!customer && normalizedUserMobile) {
+    customer = db.findOne('users', u => 
+      u.role === 'customer' && 
+      (u.mobile === req.user.mobile || u.mobile === normalizedUserMobile || (u.mobile && u.mobile.replace(/\D/g, '').slice(-10) === normalizedUserMobile))
+    );
   }
 
   if (!customer) {
     customer = db.insert('users', {
       id: req.user.id,
       name: 'Customer',
-      mobile: req.user.mobile || '',
+      mobile: normalizedUserMobile || req.user.mobile || '',
       email: '',
       address: '',
       customerType: req.user.customerType || 'retail',
@@ -138,7 +143,7 @@ router.post('/orders', (req, res) => {
     customerId: customer.id || req.user.id,
     customerDetails: {
       name: customer.name || 'Customer',
-      mobile: customer.mobile || req.user.mobile || '',
+      mobile: customer.mobile || normalizedUserMobile || req.user.mobile || '',
       email: customer.email || '',
       address: customer.address || '',
       customerType: customer.customerType || req.user.customerType || 'retail'

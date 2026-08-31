@@ -6,9 +6,26 @@ const DB_FILE = process.env.VERCEL ? path.join('/tmp', 'db.json') : BUNDLED_DB_F
 
 let memoryCache = null;
 
-// Ensure database directory and file exist
+// Ensure database directory and file exist, load into memoryCache once
 function initDB() {
-  if (memoryCache) return;
+  if (memoryCache) return memoryCache;
+
+  const defaultData = {
+    users: [],
+    ganesha_items: [
+      { id: '1', name: 'Clay Bal Ganesha', size: '1/2 ft', retailPrice: 450, wholesalePrice: 350 },
+      { id: '2', name: 'Clay Bal Ganesha', size: '1 ft', retailPrice: 900, wholesalePrice: 750 },
+      { id: '3', name: 'Traditional Ganesha', size: '1.5 ft', retailPrice: 1800, wholesalePrice: 1500 },
+      { id: '4', name: 'Traditional Ganesha', size: '2 ft', retailPrice: 3200, wholesalePrice: 2700 },
+      { id: '5', name: 'Royal Durbar Ganesha', size: '3 ft', retailPrice: 6500, wholesalePrice: 5500 }
+    ],
+    orders: [],
+    login_logs: [],
+    settings: {
+      smtp: { host: '', port: 587, secure: false, authUser: '', authPass: '', fromEmail: '' },
+      whatsapp: { accountSid: '', authToken: '', fromNumber: '' }
+    }
+  };
 
   try {
     const dir = path.dirname(DB_FILE);
@@ -16,69 +33,58 @@ function initDB() {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    if (!fs.existsSync(DB_FILE)) {
-      if (fs.existsSync(BUNDLED_DB_FILE)) {
-        const bundledContent = fs.readFileSync(BUNDLED_DB_FILE, 'utf-8');
-        fs.writeFileSync(DB_FILE, bundledContent, 'utf-8');
-        memoryCache = JSON.parse(bundledContent);
-        return;
-      }
-      
-      const initialData = {
-        users: [],
-        ganesha_items: [
-          { id: '1', name: 'Clay Bal Ganesha', size: '1/2 ft', retailPrice: 450, wholesalePrice: 350 },
-          { id: '2', name: 'Clay Bal Ganesha', size: '1 ft', retailPrice: 900, wholesalePrice: 750 },
-          { id: '3', name: 'Traditional Ganesha', size: '1.5 ft', retailPrice: 1800, wholesalePrice: 1500 },
-          { id: '4', name: 'Traditional Ganesha', size: '2 ft', retailPrice: 3200, wholesalePrice: 2700 },
-          { id: '5', name: 'Royal Durbar Ganesha', size: '3 ft', retailPrice: 6500, wholesalePrice: 5500 }
-        ],
-        orders: [],
-        login_logs: [],
-        settings: {
-          smtp: { host: '', port: 587, secure: false, authUser: '', authPass: '', fromEmail: '' },
-          whatsapp: { accountSid: '', authToken: '', fromNumber: '' }
-        }
-      };
-      fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
-      memoryCache = initialData;
-    }
-  } catch (err) {
-    console.error('initDB error, fallback to bundled or memory:', err);
-    if (fs.existsSync(BUNDLED_DB_FILE)) {
-      try {
-        memoryCache = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf-8'));
-      } catch (e) {
-        memoryCache = { users: [], ganesha_items: [], orders: [], login_logs: [] };
-      }
-    }
-  }
-}
-
-// Read database
-function readData() {
-  initDB();
-  try {
     if (fs.existsSync(DB_FILE)) {
       const content = fs.readFileSync(DB_FILE, 'utf-8');
       memoryCache = JSON.parse(content);
-      return memoryCache;
+    } else if (fs.existsSync(BUNDLED_DB_FILE)) {
+      const bundledContent = fs.readFileSync(BUNDLED_DB_FILE, 'utf-8');
+      memoryCache = JSON.parse(bundledContent);
+      fs.writeFileSync(DB_FILE, bundledContent, 'utf-8');
+    } else {
+      memoryCache = defaultData;
+      fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2), 'utf-8');
     }
   } catch (err) {
-    console.error('Error reading DB file, using memory cache:', err);
+    console.error('initDB error loading file, using defaults/in-memory:', err);
+    memoryCache = defaultData;
   }
-  return memoryCache || { users: [], ganesha_items: [], orders: [], login_logs: [] };
+
+  // Ensure all collections exist
+  if (!memoryCache.users) memoryCache.users = [];
+  if (!memoryCache.ganesha_items) memoryCache.ganesha_items = defaultData.ganesha_items;
+  if (!memoryCache.orders) memoryCache.orders = [];
+  if (!memoryCache.login_logs) memoryCache.login_logs = [];
+  if (!memoryCache.settings) memoryCache.settings = defaultData.settings;
+
+  return memoryCache;
 }
 
-// Write database
+// Read database (returns in-memory state as single source of truth)
+function readData() {
+  if (!memoryCache) {
+    initDB();
+  }
+  return memoryCache;
+}
+
+// Write database to disk safely
 function writeData(data) {
   memoryCache = data;
-  initDB();
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    const dir = path.dirname(DB_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const jsonStr = JSON.stringify(data, null, 2);
+    fs.writeFileSync(DB_FILE, jsonStr, 'utf-8');
+    if (!process.env.VERCEL && DB_FILE !== BUNDLED_DB_FILE) {
+      try {
+        fs.writeFileSync(BUNDLED_DB_FILE, jsonStr, 'utf-8');
+      } catch (e) {}
+    }
     return true;
   } catch (err) {
-    console.error('Error writing DB file, held in memory:', err);
+    console.error('Error writing DB file to disk:', err);
     return true; // Return true as in-memory state is preserved
   }
 }
@@ -87,7 +93,10 @@ const db = {
   // Generic collection operations
   getCollection(collectionName) {
     const data = readData();
-    return data[collectionName] || [];
+    if (!data[collectionName]) {
+      data[collectionName] = [];
+    }
+    return data[collectionName];
   },
 
   saveCollection(collectionName, items) {

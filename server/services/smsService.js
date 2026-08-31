@@ -42,14 +42,15 @@ async function sendBillSMS({ mobileNumber, customerName, orderId, billUrl, grand
 }
 
 function logMockSMS(mobileNumber, customerName, orderId, billUrl, grandTotal, reason) {
-  if (!fs.existsSync(LOGS_DIR)) {
-    fs.mkdirSync(LOGS_DIR, { recursive: true });
-  }
+  try {
+    if (!fs.existsSync(LOGS_DIR)) {
+      fs.mkdirSync(LOGS_DIR, { recursive: true });
+    }
 
-  const logFile = path.join(LOGS_DIR, 'sms.log');
-  const timestamp = new Date().toISOString();
+    const logFile = path.join(LOGS_DIR, 'sms.log');
+    const timestamp = new Date().toISOString();
 
-  const logEntry = `
+    const logEntry = `
 =============================================
 Timestamp: ${timestamp}
 To: ${mobileNumber}
@@ -61,8 +62,11 @@ Message: Thank you for purchasing from G.Kamal Ganesha Works, ${customerName}! ð
 =============================================
 `;
 
-  fs.appendFileSync(logFile, logEntry, 'utf-8');
-  console.log(`Simulated SMS logged in ${logFile}`);
+    fs.appendFileSync(logFile, logEntry, 'utf-8');
+    console.log(`Simulated SMS logged in ${logFile}`);
+  } catch (logErr) {
+    console.warn('Logging simulated SMS to file skipped:', logErr.message);
+  }
   return { success: true, simulated: true };
 }
 

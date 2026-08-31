@@ -90,6 +90,12 @@ const AdminDashboard = () => {
 
   // Approve Order Modal
   const [approvingOrder, setApprovingOrder] = useState(null);
+  const [modalError, setModalError] = useState('');
+
+  // Reject Order Modal
+  const [rejectingOrder, setRejectingOrder] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectModalError, setRejectModalError] = useState('');
 
   // View Bill Modal
   const [viewingBillOrder, setViewingBillOrder] = useState(null);
@@ -112,6 +118,13 @@ const AdminDashboard = () => {
     }
 
     fetchAllData();
+
+    // Auto-refresh order queue & dashboard data every 3 seconds for instant real-time sync
+    const interval = setInterval(() => {
+      fetchAllData();
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [activeTab, navigate]);
 
   const fetchAllData = async () => {
@@ -698,17 +711,25 @@ const AdminDashboard = () => {
 
   // --- ORDER APPROVAL & SENDING ---
   const startApproveOrder = (order) => {
+    setModalError('');
     setApprovingOrder(order);
   };
 
   const handleConfirmApproval = async () => {
+    if (!approvingOrder) return;
     setError('');
     setSuccess('');
+    setModalError('');
     setLoading(true);
 
     try {
-      const doc = generateBillPDF(approvingOrder, 'G.kamal ganesha works', false);
-      const pdfBase64 = doc.output('datauristring');
+      let pdfBase64 = '';
+      try {
+        const doc = generateBillPDF(approvingOrder, 'G.kamal ganesha works', false);
+        pdfBase64 = doc.output('datauristring');
+      } catch (pdfErr) {
+        console.warn('PDF generation in browser encountered warning, proceeding with approval:', pdfErr);
+      }
 
       const response = await fetch(`/api/admin/orders/${approvingOrder.id}/approve`, {
         method: 'POST',
@@ -720,12 +741,14 @@ const AdminDashboard = () => {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) throw new Error(data.error || 'Failed to approve order');
 
-      setSuccess(`Order #${approvingOrder.id} approved & submitted successfully!`);
+      setSuccess(`Order #${approvingOrder.id} has been accepted & approved successfully!`);
       setApprovingOrder(null);
       fetchAllData();
     } catch (err) {
+      console.error('Error approving order:', err);
+      setModalError(err.message || 'Failed to approve order.');
       setError(err.message || 'Failed to approve order.');
     } finally {
       setLoading(false);
@@ -739,26 +762,38 @@ const AdminDashboard = () => {
     downloadPDFBlob(doc, `Ganesha_Bill_${order.id || 'Draft'}.pdf`);
   };
 
-  const handleRejectOrder = async (orderId) => {
-    const reason = window.prompt('Enter rejection reason (optional):', 'Cannot fulfill order at this time / Out of stock');
-    if (reason === null) return;
+  // --- ORDER REJECTION ---
+  const startRejectOrder = (order) => {
+    setRejectModalError('');
+    setRejectingOrder(order);
+    setRejectionReason(order.rejectionReason || 'Cannot fulfill order at this time / Out of stock');
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectingOrder) return;
+    setError('');
+    setSuccess('');
+    setRejectModalError('');
+    setLoading(true);
 
     try {
-      setLoading(true);
-      setError('');
-      const res = await fetch(`/api/admin/orders/${orderId}/reject`, {
+      const res = await fetch(`/api/admin/orders/${rejectingOrder.id}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         },
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ reason: (rejectionReason && rejectionReason.trim()) || 'Cannot fulfill order at this time / Out of stock' })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reject order');
-      setSuccess(`Order #${orderId} marked as Rejected.`);
+
+      setSuccess(`Order #${rejectingOrder.id} marked as Rejected.`);
+      setRejectingOrder(null);
       fetchAllData();
     } catch (err) {
+      console.error('Error rejecting order:', err);
+      setRejectModalError(err.message || 'Failed to reject order.');
       setError(err.message || 'Failed to reject order.');
     } finally {
       setLoading(false);
@@ -968,21 +1003,38 @@ const AdminDashboard = () => {
               <div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-2 border-b border-devotional-gold/10 gap-3">
                   <div>
-                    <h3 className="text-base font-bold text-devotional-maroonDark uppercase tracking-wide">
-                      Order Queue & Processing
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-devotional-maroonDark uppercase tracking-wide">
+                        Order Queue & Processing
+                      </h3>
+                      <span className="flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                        Live Auto-Sync
+                      </span>
+                    </div>
                     <span className="text-[10px] text-gray-500 font-medium">
                       Showing {filteredOrders.length} of {orders.length} orders
                     </span>
                   </div>
 
-                  <button
-                    onClick={handleOpenCreateOrder}
-                    className="flex items-center gap-1.5 bg-devotional-maroon text-white hover:bg-devotional-maroonDark px-3 py-1.5 rounded-xl text-xs font-bold shadow transition-all"
-                  >
-                    <Plus size={14} />
-                    <span>Create New Order</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={fetchAllData}
+                      className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-devotional-maroon border border-devotional-gold/30 px-2.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition-all"
+                      title="Instantly refresh order queue"
+                    >
+                      <RotateCcw size={13} className="text-devotional-maroon" />
+                      <span>Refresh</span>
+                    </button>
+
+                    <button
+                      onClick={handleOpenCreateOrder}
+                      className="flex items-center gap-1.5 bg-devotional-maroon text-white hover:bg-devotional-maroonDark px-3 py-1.5 rounded-xl text-xs font-bold shadow transition-all"
+                    >
+                      <Plus size={14} />
+                      <span>Create New Order</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -1084,30 +1136,42 @@ const AdminDashboard = () => {
                                   {order.status === 'finalized' ? (
                                     <button
                                       onClick={() => downloadBillPDF(order)}
-                                      className="flex items-center gap-1 bg-devotional-gold/15 text-devotional-maroon hover:bg-devotional-gold/30 px-2 py-1.5 rounded border border-devotional-gold/20 font-bold"
-                                      title="Download PDF Bill"
+                                      className="flex items-center gap-1 bg-green-50 text-green-700 hover:bg-green-100 px-2.5 py-1.5 rounded border border-green-200 font-bold text-xs shadow-sm transition-all"
+                                      title="Download Approved Final PDF Bill"
                                     >
-                                      <Download size={12} />
+                                      <Download size={13} />
                                       <span>PDF</span>
                                     </button>
                                   ) : (
                                     <>
+                                      {/* Accept / Approve Button */}
                                       <button
                                         onClick={() => startApproveOrder(order)}
-                                        className="flex items-center gap-1 bg-devotional-maroon text-white hover:bg-devotional-maroonDark px-2.5 py-1.5 rounded font-bold"
-                                        title="Approve and Send Original Bill via SMS"
+                                        className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded font-bold text-xs shadow-sm transition-all"
+                                        title="Accept & Finalize Order (Send Final Bill via SMS)"
                                       >
-                                        <CheckCircle size={12} />
-                                        <span>Finalize</span>
+                                        <CheckCircle size={13} />
+                                        <span>Accept</span>
                                       </button>
-                                      {order.status !== 'rejected' && (
+
+                                      {/* Reject Button */}
+                                      {order.status !== 'rejected' ? (
                                         <button
-                                          onClick={() => handleRejectOrder(order.id)}
-                                          className="flex items-center gap-1 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded font-bold text-xs"
-                                          title="Reject Order"
+                                          onClick={() => startRejectOrder(order)}
+                                          className="flex items-center gap-1 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded font-bold text-xs shadow-sm transition-all"
+                                          title="Reject Order & Specify Reason"
                                         >
-                                          <XCircle size={12} />
+                                          <XCircle size={13} />
                                           <span>Reject</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => startRejectOrder(order)}
+                                          className="flex items-center gap-1 bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-2 py-1.5 rounded font-semibold text-[10px]"
+                                          title="Modify Rejection Reason"
+                                        >
+                                          <Edit size={11} />
+                                          <span>Reason</span>
                                         </button>
                                       )}
                                     </>
@@ -2715,51 +2779,64 @@ const AdminDashboard = () => {
             
             <div className="bg-devotional-maroon text-devotional-cream px-6 py-4 flex justify-between items-center border-b border-devotional-gold">
               <h3 className="font-bold text-sm tracking-wider uppercase flex items-center gap-1.5">
-                <FileText size={16} className="text-devotional-gold" />
-                Approve & Finalize Bill
+                <CheckCircle size={17} className="text-devotional-gold" />
+                Accept & Finalize Order #{approvingOrder.id}
               </h3>
               <button
-                onClick={() => setApprovingOrder(null)}
+                onClick={() => { setApprovingOrder(null); setModalError(''); }}
                 className="text-devotional-goldLight hover:text-white font-bold text-xs"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
+              {modalError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0 text-red-600" />
+                  <span>{modalError}</span>
+                </div>
+              )}
+
               <div>
-                <h4 className="text-sm font-bold text-devotional-maroonDark mb-1">Confirming Order details:</h4>
-                <div className="bg-devotional-cream/30 p-3 rounded-xl border border-devotional-gold/15 text-xs text-gray-600 space-y-1">
-                  <p><strong>Customer:</strong> {approvingOrder.customerDetails?.name}</p>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">Order Details</h4>
+                <div className="bg-devotional-cream/30 p-3.5 rounded-xl border border-devotional-gold/20 text-xs text-gray-700 space-y-1.5">
+                  <p><strong>Customer:</strong> {approvingOrder.customerDetails?.name || 'Customer'}</p>
                   <p><strong>Mobile:</strong> {approvingOrder.customerDetails?.mobile}</p>
                   <p><strong>Grand Total:</strong> ₹{approvingOrder.grandTotal?.toLocaleString()}</p>
-                  <p><strong>Balance Due:</strong> ₹{approvingOrder.balanceDue?.toLocaleString()}</p>
+                  <p><strong>Advance Paid:</strong> ₹{approvingOrder.advancePayment?.toLocaleString() || 0}</p>
+                  <p className="text-devotional-maroon font-bold"><strong>Balance Due:</strong> ₹{approvingOrder.balanceDue?.toLocaleString()}</p>
+                  {approvingOrder.items && approvingOrder.items.length > 0 && (
+                    <p className="text-[11px] text-gray-500 pt-1 border-t border-devotional-gold/10">
+                      <strong>Items ({approvingOrder.items.length}):</strong> {approvingOrder.items.map(i => `${i.name} (x${i.quantity})`).join(', ')}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* SMS Notification Message */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">SMS Notification Dispatch</h4>
-                <div className="bg-devotional-cream/20 p-4 border border-devotional-gold/25 rounded-xl text-xs text-gray-700">
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Automated SMS Notification</h4>
+                <div className="bg-amber-50/60 p-3.5 border border-devotional-gold/25 rounded-xl text-xs text-gray-700">
                   <p className="leading-relaxed">
-                    An automated <strong>Thank You SMS</strong> containing a secure bill download link will be dispatched to the customer's mobile number:
+                    A finalized <strong>Thank You SMS</strong> with secure bill download link will be dispatched to:
                   </p>
-                  <p className="font-bold mt-2 text-devotional-maroonDark text-sm">
-                    {approvingOrder.customerDetails?.mobile}
+                  <p className="font-bold mt-1.5 text-devotional-maroonDark text-sm">
+                    📞 {approvingOrder.customerDetails?.mobile}
                   </p>
                 </div>
               </div>
 
-              <div className="text-center p-3.5 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800 text-[10px] leading-relaxed">
-                <strong>Attention:</strong> Approving will watermark the PDF with <strong>"G.kamal ganesha works"</strong>, remove the checking note, and unlock the customer download button.
+              <div className="text-center p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800 text-[11px] leading-relaxed">
+                Approving will finalize this order, apply <strong>"G.kamal ganesha works"</strong> watermark, and unlock Original Bill download for the customer.
               </div>
             </div>
 
             <div className="bg-gray-50 px-6 py-4 flex justify-between gap-3 border-t">
               <button
                 type="button"
-                onClick={() => setApprovingOrder(null)}
-                className="px-5 py-2.5 text-xs font-bold border border-gray-300 rounded-xl text-gray-500 hover:bg-gray-100"
+                onClick={() => { setApprovingOrder(null); setModalError(''); }}
+                className="px-4 py-2.5 text-xs font-bold border border-gray-300 rounded-xl text-gray-500 hover:bg-gray-100"
               >
                 Cancel
               </button>
@@ -2767,27 +2844,130 @@ const AdminDashboard = () => {
                 <button
                   type="button"
                   onClick={() => downloadBillPDF(approvingOrder)}
-                  className="px-5 py-2.5 text-xs font-bold uppercase border border-amber-600 text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl flex items-center gap-1.5 transition-all"
+                  className="px-4 py-2.5 text-xs font-bold uppercase border border-amber-600 text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl flex items-center gap-1.5 transition-all"
                 >
                   <Download size={14} />
-                  <span>Download Bill</span>
+                  <span>Preview PDF</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmApproval}
                   disabled={loading}
-                  className="bg-gradient-to-r from-devotional-orange to-red-600 text-white font-bold px-6 py-2.5 rounded-xl hover:from-devotional-marigold hover:to-devotional-orange transition-all duration-300 text-xs uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50"
+                  className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow text-xs uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
                     <>
-                      <Send size={14} />
-                      <span>Submit Approval</span>
+                      <CheckCircle size={14} />
+                      <span>Accept & Finalize</span>
                     </>
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 6: REJECT ORDER DIALOG */}
+      {/* ============================================================ */}
+      {rejectingOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-start p-4 overflow-y-auto">
+          <div className="w-full max-w-md bg-white border-2 border-red-300 rounded-2xl shadow-2xl animate-fadeIn relative my-8">
+            
+            <div className="bg-red-700 text-white px-6 py-4 flex justify-between items-center rounded-t-2xl">
+              <h3 className="font-bold text-sm tracking-wider uppercase flex items-center gap-1.5">
+                <XCircle size={17} className="text-red-200" />
+                Reject Order #{rejectingOrder.id}
+              </h3>
+              <button
+                onClick={() => { setRejectingOrder(null); setRejectModalError(''); }}
+                className="text-red-200 hover:text-white font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {rejectModalError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0 text-red-600" />
+                  <span>{rejectModalError}</span>
+                </div>
+              )}
+
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-1">
+                <p><strong>Customer:</strong> {rejectingOrder.customerDetails?.name || 'Customer'}</p>
+                <p><strong>Mobile:</strong> {rejectingOrder.customerDetails?.mobile}</p>
+                <p><strong>Amount:</strong> ₹{rejectingOrder.grandTotal?.toLocaleString()}</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
+                  Select or Enter Rejection Reason:
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {[
+                    'Out of Stock / Sold Out',
+                    'Cannot fulfill by required date',
+                    'Customer requested cancellation',
+                    'Custom design not feasible',
+                    'Contact number unreachable'
+                  ].map(preset => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setRejectionReason(preset)}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+                        rejectionReason === preset
+                          ? 'bg-red-600 text-white border-red-600 font-bold shadow-sm'
+                          : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter rejection reason for customer..."
+                  rows={3}
+                  className="w-full text-xs p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none bg-white"
+                />
+              </div>
+
+              <div className="text-[11px] text-gray-500 bg-red-50/60 p-2.5 rounded-lg border border-red-100">
+                This rejection note will be displayed in the Customer's Order history and status column.
+              </div>
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 flex justify-between gap-3 border-t rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => { setRejectingOrder(null); setRejectModalError(''); }}
+                className="px-4 py-2 text-xs font-bold border border-gray-300 rounded-xl text-gray-500 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={loading}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2 rounded-xl transition-all shadow text-xs uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <XCircle size={14} />
+                    <span>Confirm Rejection</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

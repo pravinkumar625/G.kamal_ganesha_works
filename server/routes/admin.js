@@ -40,11 +40,18 @@ router.post('/orders', (req, res) => {
   }
 
   // Find or create customer in users
-  let customer = db.findOne('users', u => u.mobile === customerDetails.mobile.trim());
+  const adminMobile = customerDetails.mobile.trim();
+  const normalizedAdminMobile = adminMobile.replace(/\D/g, '').slice(-10) || adminMobile;
+
+  let customer = db.findOne('users', u => 
+    u.role === 'customer' && 
+    (u.mobile === adminMobile || u.mobile === normalizedAdminMobile || (u.mobile && u.mobile.replace(/\D/g, '').slice(-10) === normalizedAdminMobile))
+  );
+
   if (!customer) {
     customer = db.insert('users', {
       name: customerDetails.name.trim(),
-      mobile: customerDetails.mobile.trim(),
+      mobile: normalizedAdminMobile,
       email: customerDetails.email ? customerDetails.email.trim() : '',
       address: customerDetails.address ? customerDetails.address.trim() : '',
       customerType: customerDetails.customerType || 'retail',
@@ -63,7 +70,7 @@ router.post('/orders', (req, res) => {
     customerId: customer.id,
     customerDetails: {
       name: customerDetails.name.trim(),
-      mobile: customerDetails.mobile.trim(),
+      mobile: normalizedAdminMobile,
       email: customerDetails.email ? customerDetails.email.trim() : '',
       address: customerDetails.address ? customerDetails.address.trim() : '',
       customerType: customerDetails.customerType || customer.customerType || 'retail'
@@ -122,10 +129,6 @@ router.post('/orders/:id/approve', async (req, res) => {
   const orderId = req.params.id;
   const { pdfBase64 } = req.body;
 
-  if (!pdfBase64) {
-    return res.status(400).json({ error: 'Original Bill PDF data (base64) is required for approval' });
-  }
-
   const order = db.findOne('orders', o => o.id === orderId);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
@@ -133,9 +136,17 @@ router.post('/orders/:id/approve', async (req, res) => {
 
   const updates = {
     status: 'finalized',
-    originalPdfBase64: pdfBase64,
     billSentLogs: order.billSentLogs || []
   };
+
+  if (pdfBase64) {
+    updates.originalPdfBase64 = pdfBase64;
+  }
+
+  // If order was previously rejected, clear rejection status
+  if (order.status === 'rejected') {
+    updates.rejectionReason = '';
+  }
 
   const logs = [...updates.billSentLogs];
   const mobileNumber = order.customerDetails?.mobile;
@@ -148,7 +159,7 @@ router.post('/orders/:id/approve', async (req, res) => {
 
       const result = await sendBillSMS({
         mobileNumber,
-        customerName: order.customerDetails.name,
+        customerName: order.customerDetails.name || 'Valued Customer',
         orderId: order.id,
         billUrl: billUrl,
         grandTotal: order.grandTotal
@@ -198,7 +209,7 @@ router.post('/orders/:id/reject', (req, res) => {
 
   const updates = {
     status: 'rejected',
-    rejectionReason: reason || 'Order rejected by Admin workshop',
+    rejectionReason: (reason && typeof reason === 'string' && reason.trim()) ? reason.trim() : 'Cannot fulfill order at this time / Out of stock',
     rejectedAt: new Date().toISOString()
   };
 

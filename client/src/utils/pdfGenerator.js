@@ -202,9 +202,11 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
     doc.text(nameLines[0], 22, currentY + 5);
 
     doc.text(item.size || '', 96, currentY + 5);
-    doc.text(`Rs.${Number(item.rate).toLocaleString('en-IN')}`, 128, currentY + 5, { align: 'right' });
+    const rateVal = Number(item.rate !== undefined && !isNaN(item.rate) ? item.rate : (item.quantity ? ((item.lineTotal || 0) / item.quantity) : 0));
+    doc.text(`Rs.${rateVal.toLocaleString('en-IN')}`, 128, currentY + 5, { align: 'right' });
     doc.text(String(item.quantity || 1), 152, currentY + 5, { align: 'right' });
-    doc.text(`Rs.${Number(item.lineTotal || 0).toLocaleString('en-IN')}`, pageWidth - 13, currentY + 5, { align: 'right' });
+    const lineTotalVal = Number(item.lineTotal !== undefined && !isNaN(item.lineTotal) ? item.lineTotal : (rateVal * (item.quantity || 1)));
+    doc.text(`Rs.${lineTotalVal.toLocaleString('en-IN')}`, pageWidth - 13, currentY + 5, { align: 'right' });
 
     doc.setDrawColor(220, 210, 190);
     doc.setLineWidth(0.1);

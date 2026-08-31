@@ -14,32 +14,37 @@ router.post('/login/customer', (req, res) => {
     return res.status(400).json({ error: 'Mobile number is required' });
   }
 
-  // Standardize mobile number by trimming whitespace
+  // Standardize mobile number by trimming whitespace and extracting last 10 digits
   const cleanMobile = mobile.trim();
+  const normalizedMobile = cleanMobile.replace(/\D/g, '').slice(-10) || cleanMobile;
   const cleanEmail = email ? email.trim() : '';
   const selectedType = (customerType === 'wholesale' || customerType === 'retail') ? customerType : 'retail';
 
-  // Look up customer by mobile
-  let customer = db.findOne('users', u => u.mobile === cleanMobile && u.role === 'customer');
+  // Look up customer by mobile (either exact match or normalized 10-digit match)
+  let customer = db.findOne('users', u => 
+    u.role === 'customer' && 
+    (u.mobile === cleanMobile || u.mobile === normalizedMobile || (u.mobile && u.mobile.replace(/\D/g, '').slice(-10) === normalizedMobile))
+  );
 
   if (!customer) {
     // Self-registration on first login
     customer = db.insert('users', {
       name: 'New Customer',
-      mobile: cleanMobile,
+      mobile: normalizedMobile,
       email: cleanEmail,
       address: '',
       customerType: selectedType,
       role: 'customer'
     });
   } else {
-    // If logging in again, keep the entered details for this session
-    const updates = { customerType: selectedType };
+    // If logging in again, keep the entered details for this session and normalize mobile
+    const updates = { customerType: selectedType, mobile: normalizedMobile };
     if (cleanEmail && customer.email !== cleanEmail) {
       updates.email = cleanEmail;
     }
     db.update('users', customer.id, updates);
     customer.customerType = selectedType;
+    customer.mobile = normalizedMobile;
     if (updates.email) customer.email = cleanEmail;
   }
 
@@ -49,7 +54,7 @@ router.post('/login/customer', (req, res) => {
     customerId: customer.id,
     name: customer.name || 'New Customer',
     email: cleanEmail || customer.email || '',
-    mobile: cleanMobile,
+    mobile: normalizedMobile,
     timestamp: new Date().toISOString(),
     userAgent: userAgent
   });
