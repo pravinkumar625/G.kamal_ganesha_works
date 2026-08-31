@@ -117,19 +117,31 @@ router.post('/orders', (req, res) => {
     return res.status(400).json({ error: 'Order must contain at least one item' });
   }
 
-  const customer = db.findOne('users', u => u.id === req.user.id);
+  let customer = db.findOne('users', u => u.id === req.user.id);
+  if (!customer && req.user.mobile) {
+    customer = db.findOne('users', u => u.mobile === req.user.mobile);
+  }
+
   if (!customer) {
-    return res.status(404).json({ error: 'Customer profile not found' });
+    customer = db.insert('users', {
+      id: req.user.id,
+      name: 'Customer',
+      mobile: req.user.mobile || '',
+      email: '',
+      address: '',
+      customerType: req.user.customerType || 'retail',
+      role: 'customer'
+    });
   }
 
   const orderData = {
-    customerId: customer.id,
+    customerId: customer.id || req.user.id,
     customerDetails: {
-      name: customer.name,
-      mobile: customer.mobile,
+      name: customer.name || 'Customer',
+      mobile: customer.mobile || req.user.mobile || '',
       email: customer.email || '',
       address: customer.address || '',
-      customerType: customer.customerType || 'retail'
+      customerType: customer.customerType || req.user.customerType || 'retail'
     },
     items,
     grandTotal: Number(grandTotal) || 0,
