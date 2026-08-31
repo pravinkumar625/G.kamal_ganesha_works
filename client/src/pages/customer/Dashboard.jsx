@@ -55,21 +55,65 @@ const CustomerDashboard = () => {
     }
 
     const parsedUser = JSON.parse(storedUser);
+    
+    // Check customer-specific localStorage cache
+    const localProfileKey = `customerProfile_${parsedUser.mobile}`;
+    const savedLocalProfile = localStorage.getItem(localProfileKey);
+    if (savedLocalProfile) {
+      try {
+        const lp = JSON.parse(savedLocalProfile);
+        if (lp.name && lp.name !== 'New Customer') {
+          parsedUser.name = lp.name;
+          parsedUser.email = lp.email || parsedUser.email;
+          parsedUser.address = lp.address || parsedUser.address;
+        }
+      } catch (e) {}
+    }
+
     setUser(parsedUser);
     setProfileForm({
-      name: parsedUser.name || '',
+      name: (parsedUser.name && parsedUser.name !== 'New Customer' ? parsedUser.name : '') || '',
       email: parsedUser.email || '',
       address: parsedUser.address || ''
     });
 
-    // Check if name is default "New Customer" to prompt immediate update
-    if (parsedUser.name === 'New Customer' || !parsedUser.name) {
+    if (!parsedUser.name || parsedUser.name === 'New Customer') {
       setIsEditingProfile(true);
+    } else {
+      setIsEditingProfile(false);
     }
 
+    fetchProfile();
     fetchCatalog();
     fetchOrders();
   }, [navigate]);
+
+  // Fetch logged in customer profile from backend
+  const fetchProfile = async () => {
+    try {
+      const response = await fetch('/api/customer/profile', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.name && data.name !== 'New Customer') {
+          setUser(prev => ({ ...prev, ...data }));
+          setProfileForm({
+            name: data.name || '',
+            email: data.email || '',
+            address: data.address || ''
+          });
+          localStorage.setItem(`customerProfile_${data.mobile}`, JSON.stringify(data));
+          localStorage.setItem('customerUser', JSON.stringify(data));
+          setIsEditingProfile(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+    }
+  };
 
   // Fetch Ganesha catalog items
   const fetchCatalog = async () => {
@@ -142,6 +186,9 @@ const CustomerDashboard = () => {
       const updatedUser = { ...user, ...data.user };
       setUser(updatedUser);
       localStorage.setItem('customerUser', JSON.stringify(updatedUser));
+      if (updatedUser.mobile) {
+        localStorage.setItem(`customerProfile_${updatedUser.mobile}`, JSON.stringify(updatedUser));
+      }
       
       setSuccess('Profile details confirmed successfully!');
       setIsEditingProfile(false);
@@ -755,6 +802,18 @@ const CustomerDashboard = () => {
                                 <CheckCircle size={10} />
                                 Original Bill Ready
                               </span>
+                            ) : order.status === 'rejected' ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-red-200">
+                                  <AlertCircle size={10} />
+                                  Rejected by Workshop
+                                </span>
+                                {order.rejectionReason && (
+                                  <span className="text-[8px] text-gray-500 max-w-[120px] truncate" title={order.rejectionReason}>
+                                    {order.rejectionReason}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-200">
                                 <AlertCircle size={10} />

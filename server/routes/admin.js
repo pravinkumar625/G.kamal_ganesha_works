@@ -186,6 +186,26 @@ router.post('/orders/:id/approve', async (req, res) => {
   res.json({ message: 'Order finalized and SMS sent', order: finalizedOrder });
 });
 
+// Reject Order
+router.post('/orders/:id/reject', (req, res) => {
+  const orderId = req.params.id;
+  const { reason } = req.body;
+
+  const order = db.findOne('orders', o => o.id === orderId);
+  if (!order) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+
+  const updates = {
+    status: 'rejected',
+    rejectionReason: reason || 'Order rejected by Admin workshop',
+    rejectedAt: new Date().toISOString()
+  };
+
+  const updatedOrder = db.update('orders', orderId, updates);
+  res.json({ message: 'Order rejected successfully', order: updatedOrder });
+});
+
 // --- CATALOG MANAGEMENT ENDPOINTS ---
 
 // Get catalog for admin

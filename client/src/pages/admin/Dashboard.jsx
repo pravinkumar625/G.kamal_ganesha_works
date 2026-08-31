@@ -35,7 +35,8 @@ import {
   Layers,
   MessageSquare,
   Radio,
-  Check
+  Check,
+  XCircle
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -738,6 +739,32 @@ const AdminDashboard = () => {
     downloadPDFBlob(doc, `Ganesha_Bill_${order.id || 'Draft'}.pdf`);
   };
 
+  const handleRejectOrder = async (orderId) => {
+    const reason = window.prompt('Enter rejection reason (optional):', 'Cannot fulfill order at this time / Out of stock');
+    if (reason === null) return;
+
+    try {
+      setLoading(true);
+      setError('');
+      const res = await fetch(`/api/admin/orders/${orderId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reject order');
+      setSuccess(`Order #${orderId} marked as Rejected.`);
+      fetchAllData();
+    } catch (err) {
+      setError(err.message || 'Failed to reject order.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter login logs
   const filteredActivity = loginActivity.filter(log => 
     log.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -1016,9 +1043,20 @@ const AdminDashboard = () => {
                                       <MessageSquare size={9} /> SMS Sent
                                     </span>
                                   </div>
+                                ) : order.status === 'rejected' ? (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="bg-red-50 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-200">
+                                      Rejected
+                                    </span>
+                                    {order.rejectionReason && (
+                                      <span className="text-[8px] text-gray-500 max-w-[100px] truncate" title={order.rejectionReason}>
+                                        {order.rejectionReason}
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="bg-amber-50 text-amber-700 text-[9px] font-bold px-2 py-1 rounded-full border border-amber-200">
-                                    New Order
+                                    Pending Review
                                   </span>
                                 )}
                               </td>
@@ -1053,14 +1091,26 @@ const AdminDashboard = () => {
                                       <span>PDF</span>
                                     </button>
                                   ) : (
-                                    <button
-                                      onClick={() => startApproveOrder(order)}
-                                      className="flex items-center gap-1 bg-devotional-maroon text-white hover:bg-devotional-maroonDark px-2.5 py-1.5 rounded font-bold"
-                                      title="Approve and Send Original Bill via SMS"
-                                    >
-                                      <CheckCircle size={12} />
-                                      <span>Finalize</span>
-                                    </button>
+                                    <>
+                                      <button
+                                        onClick={() => startApproveOrder(order)}
+                                        className="flex items-center gap-1 bg-devotional-maroon text-white hover:bg-devotional-maroonDark px-2.5 py-1.5 rounded font-bold"
+                                        title="Approve and Send Original Bill via SMS"
+                                      >
+                                        <CheckCircle size={12} />
+                                        <span>Finalize</span>
+                                      </button>
+                                      {order.status !== 'rejected' && (
+                                        <button
+                                          onClick={() => handleRejectOrder(order.id)}
+                                          className="flex items-center gap-1 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded font-bold text-xs"
+                                          title="Reject Order"
+                                        >
+                                          <XCircle size={12} />
+                                          <span>Reject</span>
+                                        </button>
+                                      )}
+                                    </>
                                   )}
 
                                   {/* Delete Order Button */}
