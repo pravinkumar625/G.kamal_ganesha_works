@@ -67,7 +67,7 @@ function readData() {
   return memoryCache;
 }
 
-// Write database to disk safely
+// Write database to disk safely (and sync to Vercel KV if available)
 function writeData(data) {
   memoryCache = data;
   try {
@@ -82,11 +82,72 @@ function writeData(data) {
         fs.writeFileSync(BUNDLED_DB_FILE, jsonStr, 'utf-8');
       } catch (e) {}
     }
+
+    // Save to Vercel KV in the background (fire and forget)
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      fetch(process.env.KV_REST_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.KV_REST_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['SET', 'ganesha_db', jsonStr])
+      }).catch(err => {
+        console.error('Error writing to Vercel KV store in background:', err);
+      });
+    }
+
     return true;
   } catch (err) {
     console.error('Error writing DB file to disk:', err);
     return true; // Return true as in-memory state is preserved
   }
+}
+
+// Asynchronously load database from Vercel KV if environment variables are present
+let kvLoadingPromise = null;
+function loadFromKV() {
+  if (kvLoadingPromise) return kvLoadingPromise;
+
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    console.log('Detected Vercel KV. Initiating DB restore from KV...');
+    kvLoadingPromise = fetch(process.env.KV_REST_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.KV_REST_API_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(['GET', 'ganesha_db'])
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`KV REST response code ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        if (data && data.result) {
+          const parsed = JSON.parse(data.result);
+          if (parsed && typeof parsed === 'object') {
+            memoryCache = parsed;
+            console.log('Database loaded successfully from Vercel KV store!');
+          }
+        } else {
+          console.log('Vercel KV store is empty. Initializing with local/bundled data.');
+        }
+        return memoryCache;
+      })
+      .catch(err => {
+        console.error('Failed to load from Vercel KV, using local files:', err);
+        return memoryCache;
+      });
+  } else {
+    kvLoadingPromise = Promise.resolve(memoryCache || initDB());
+  }
+  return kvLoadingPromise;
+}
+
+// Call on startup
+if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+  loadFromKV();
 }
 
 const db = {
@@ -185,7 +246,9 @@ const db = {
       whatsapp: { ...(data.settings?.whatsapp || {}), ...(newSettings.whatsapp || {}) }
     };
     return writeData(data);
-  }
+  },
+
+  loadFromKV
 };
 
 module.exports = db;
