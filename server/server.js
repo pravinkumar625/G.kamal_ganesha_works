@@ -49,7 +49,9 @@ app.get('/api/public/bills/:id/download', (req, res) => {
 });
 
 // Serve frontend static assets (if built)
-const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
+const fs = require('fs');
+const rootDistPath = path.join(__dirname, '..', 'dist');
+const clientBuildPath = fs.existsSync(rootDistPath) ? rootDistPath : path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientBuildPath));
 
 // SPA fallback for routing - send all non-API requests to React index.html
@@ -69,25 +71,29 @@ app.get('*', (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  const os = require('os');
-  const nets = os.networkInterfaces();
-  const ips = [];
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        ips.push(net.address);
+if (!process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
+    const os = require('os');
+    const nets = os.networkInterfaces();
+    const ips = [];
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          ips.push(net.address);
+        }
       }
     }
-  }
 
-  console.log(`==================================================`);
-  console.log(`  G.Kamal Ganesha Works Server is active!`);
-  console.log(`  Access URLs:`);
-  console.log(`  - Local PC:     http://localhost:${PORT}`);
-  ips.forEach(ip => {
-    console.log(`  - Mobile Phone: http://${ip}:${PORT}`);
-    console.log(`  - Mobile Dev:   http://${ip}:8080`);
+    console.log(`==================================================`);
+    console.log(`  G.Kamal Ganesha Works Server is active!`);
+    console.log(`  Access URLs:`);
+    console.log(`  - Local PC:     http://localhost:${PORT}`);
+    ips.forEach(ip => {
+      console.log(`  - Mobile Phone: http://${ip}:${PORT}`);
+      console.log(`  - Mobile Dev:   http://${ip}:8080`);
+    });
+    console.log(`==================================================`);
   });
-  console.log(`==================================================`);
-});
+}
+
+module.exports = app;
