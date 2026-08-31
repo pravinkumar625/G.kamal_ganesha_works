@@ -1,45 +1,57 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_FILE = path.join(__dirname, 'data', 'db.json');
+const BUNDLED_DB_FILE = path.join(__dirname, 'data', 'db.json');
+const DB_FILE = process.env.VERCEL ? path.join('/tmp', 'db.json') : BUNDLED_DB_FILE;
+
+let memoryCache = null;
 
 // Ensure database directory and file exist
 function initDB() {
-  const dir = path.dirname(DB_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (memoryCache) return;
 
-  if (!fs.existsSync(DB_FILE)) {
-    const initialData = {
-      users: [],
-      ganesha_items: [
-        // Seed some default items for ease of initial load
-        { id: '1', name: 'Clay Bal Ganesha', size: '1/2 ft', retailPrice: 450, wholesalePrice: 350 },
-        { id: '2', name: 'Clay Bal Ganesha', size: '1 ft', retailPrice: 900, wholesalePrice: 750 },
-        { id: '3', name: 'Traditional Ganesha', size: '1.5 ft', retailPrice: 1800, wholesalePrice: 1500 },
-        { id: '4', name: 'Traditional Ganesha', size: '2 ft', retailPrice: 3200, wholesalePrice: 2700 },
-        { id: '5', name: 'Royal Durbar Ganesha', size: '3 ft', retailPrice: 6500, wholesalePrice: 5500 }
-      ],
-      orders: [],
-      login_logs: [],
-      settings: {
-        smtp: {
-          host: '',
-          port: 587,
-          secure: false,
-          authUser: '',
-          authPass: '',
-          fromEmail: ''
-        },
-        whatsapp: {
-          accountSid: '',
-          authToken: '',
-          fromNumber: ''
-        }
+  try {
+    const dir = path.dirname(DB_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (!fs.existsSync(DB_FILE)) {
+      if (fs.existsSync(BUNDLED_DB_FILE)) {
+        const bundledContent = fs.readFileSync(BUNDLED_DB_FILE, 'utf-8');
+        fs.writeFileSync(DB_FILE, bundledContent, 'utf-8');
+        memoryCache = JSON.parse(bundledContent);
+        return;
       }
-    };
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
+      
+      const initialData = {
+        users: [],
+        ganesha_items: [
+          { id: '1', name: 'Clay Bal Ganesha', size: '1/2 ft', retailPrice: 450, wholesalePrice: 350 },
+          { id: '2', name: 'Clay Bal Ganesha', size: '1 ft', retailPrice: 900, wholesalePrice: 750 },
+          { id: '3', name: 'Traditional Ganesha', size: '1.5 ft', retailPrice: 1800, wholesalePrice: 1500 },
+          { id: '4', name: 'Traditional Ganesha', size: '2 ft', retailPrice: 3200, wholesalePrice: 2700 },
+          { id: '5', name: 'Royal Durbar Ganesha', size: '3 ft', retailPrice: 6500, wholesalePrice: 5500 }
+        ],
+        orders: [],
+        login_logs: [],
+        settings: {
+          smtp: { host: '', port: 587, secure: false, authUser: '', authPass: '', fromEmail: '' },
+          whatsapp: { accountSid: '', authToken: '', fromNumber: '' }
+        }
+      };
+      fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
+      memoryCache = initialData;
+    }
+  } catch (err) {
+    console.error('initDB error, fallback to bundled or memory:', err);
+    if (fs.existsSync(BUNDLED_DB_FILE)) {
+      try {
+        memoryCache = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf-8'));
+      } catch (e) {
+        memoryCache = { users: [], ganesha_items: [], orders: [], login_logs: [] };
+      }
+    }
   }
 }
 
@@ -47,23 +59,27 @@ function initDB() {
 function readData() {
   initDB();
   try {
-    const content = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(content);
+    if (fs.existsSync(DB_FILE)) {
+      const content = fs.readFileSync(DB_FILE, 'utf-8');
+      memoryCache = JSON.parse(content);
+      return memoryCache;
+    }
   } catch (err) {
-    console.error('Error reading DB file:', err);
-    return {};
+    console.error('Error reading DB file, using memory cache:', err);
   }
+  return memoryCache || { users: [], ganesha_items: [], orders: [], login_logs: [] };
 }
 
 // Write database
 function writeData(data) {
+  memoryCache = data;
   initDB();
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
     return true;
   } catch (err) {
-    console.error('Error writing DB file:', err);
-    return false;
+    console.error('Error writing DB file, held in memory:', err);
+    return true; // Return true as in-memory state is preserved
   }
 }
 

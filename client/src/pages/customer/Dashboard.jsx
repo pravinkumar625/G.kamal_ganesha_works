@@ -122,6 +122,9 @@ const CustomerDashboard = () => {
       return;
     }
 
+    setError('');
+    setSuccess('');
+
     try {
       const response = await fetch('/api/customer/profile', {
         method: 'POST',

@@ -8,16 +8,31 @@ router.use(requireRole('customer'));
 
 // Get logged-in customer's profile details
 router.get('/profile', (req, res) => {
-  const customer = db.findOne('users', u => u.id === req.user.id);
-  if (!customer) {
-    return res.status(404).json({ error: 'Customer not found' });
+  let customer = db.findOne('users', u => u.id === req.user.id);
+  if (!customer && req.user.mobile) {
+    customer = db.findOne('users', u => u.mobile === req.user.mobile);
   }
+  
+  if (!customer) {
+    // Auto-create/restore customer profile from JWT payload
+    customer = db.insert('users', {
+      id: req.user.id,
+      name: 'New Customer',
+      mobile: req.user.mobile || '',
+      email: '',
+      address: '',
+      customerType: req.user.customerType || 'retail',
+      role: 'customer'
+    });
+  }
+
   res.json({
-    id: customer.id,
-    name: customer.name,
-    mobile: customer.mobile,
-    email: customer.email,
-    address: customer.address
+    id: customer.id || req.user.id,
+    name: customer.name || 'New Customer',
+    mobile: customer.mobile || req.user.mobile,
+    email: customer.email || '',
+    address: customer.address || '',
+    customerType: customer.customerType || req.user.customerType || 'retail'
   });
 });
 
@@ -29,24 +44,44 @@ router.post('/profile', (req, res) => {
     return res.status(400).json({ error: 'Name is required' });
   }
 
-  const updated = db.update('users', req.user.id, {
+  let updated = db.update('users', req.user.id, {
     name: name.trim(),
     email: email ? email.trim() : '',
     address: address ? address.trim() : ''
   });
 
+  if (!updated && req.user.mobile) {
+    const existing = db.findOne('users', u => u.mobile === req.user.mobile);
+    if (existing) {
+      updated = db.update('users', existing.id, {
+        name: name.trim(),
+        email: email ? email.trim() : '',
+        address: address ? address.trim() : ''
+      });
+    }
+  }
+
   if (!updated) {
-    return res.status(404).json({ error: 'Customer not found' });
+    updated = db.insert('users', {
+      id: req.user.id,
+      name: name.trim(),
+      mobile: req.user.mobile || '',
+      email: email ? email.trim() : '',
+      address: address ? address.trim() : '',
+      customerType: req.user.customerType || 'retail',
+      role: 'customer'
+    });
   }
 
   res.json({
     message: 'Profile updated successfully',
     user: {
-      id: updated.id,
+      id: updated.id || req.user.id,
       name: updated.name,
-      mobile: updated.mobile,
+      mobile: updated.mobile || req.user.mobile,
       email: updated.email,
-      address: updated.address
+      address: updated.address,
+      customerType: updated.customerType || req.user.customerType || 'retail'
     }
   });
 });
