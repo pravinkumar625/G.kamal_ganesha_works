@@ -1,0 +1,14 @@
+{
+  "name": "ganesha-works",
+  "version": "1.0.0",
+  "description": "G.Kamal Ganesha Works - Full Stack E-Commerce & Order Management Portal",
+  "main": "server/server.js",
+  "scripts": {
+    "postinstall": "npm install --prefix server && npm install --prefix client",
+    "build": "npm run build --prefix client",
+    "start": "node server/server.js"
+  },
+  "keywords": [],
+  "author": "G.Kamal Ganesha Works",
+  "license": "ISC"
+}
