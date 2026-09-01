@@ -8,17 +8,20 @@ router.use(requireRole('customer'));
 
 // Get logged-in customer's profile details
 router.get('/profile', (req, res) => {
+  const userMobile = req.user.mobile ? req.user.mobile.toString().replace(/\D/g, '').slice(-10) : '';
+  
   let customer = db.findOne('users', u => u.id === req.user.id);
-  if (!customer && req.user.mobile) {
-    customer = db.findOne('users', u => u.mobile === req.user.mobile);
+  if (!customer && userMobile) {
+    customer = db.findOne('users', u => 
+      u.role === 'customer' && (u.mobile === req.user.mobile || (u.mobile && u.mobile.replace(/\D/g, '').slice(-10) === userMobile))
+    );
   }
   
   if (!customer) {
-    // Auto-create/restore customer profile from JWT payload
     customer = db.insert('users', {
       id: req.user.id,
       name: 'New Customer',
-      mobile: req.user.mobile || '',
+      mobile: userMobile || req.user.mobile || '',
       email: '',
       address: '',
       customerType: req.user.customerType || 'retail',
@@ -40,23 +43,30 @@ router.get('/profile', (req, res) => {
 router.post('/profile', (req, res) => {
   const { name, email, address } = req.body;
 
-  if (!name) {
+  if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Name is required' });
   }
 
+  const cleanName = name.trim();
+  const cleanEmail = email ? email.trim() : '';
+  const cleanAddress = address ? address.trim() : '';
+
   let updated = db.update('users', req.user.id, {
-    name: name.trim(),
-    email: email ? email.trim() : '',
-    address: address ? address.trim() : ''
+    name: cleanName,
+    email: cleanEmail,
+    address: cleanAddress
   });
 
   if (!updated && req.user.mobile) {
-    const existing = db.findOne('users', u => u.mobile === req.user.mobile);
+    const normalizedMobile = req.user.mobile.toString().replace(/\D/g, '').slice(-10);
+    const existing = db.findOne('users', u => 
+      u.role === 'customer' && (u.mobile === req.user.mobile || (u.mobile && u.mobile.replace(/\D/g, '').slice(-10) === normalizedMobile))
+    );
     if (existing) {
       updated = db.update('users', existing.id, {
-        name: name.trim(),
-        email: email ? email.trim() : '',
-        address: address ? address.trim() : ''
+        name: cleanName,
+        email: cleanEmail,
+        address: cleanAddress
       });
     }
   }
@@ -64,10 +74,10 @@ router.post('/profile', (req, res) => {
   if (!updated) {
     updated = db.insert('users', {
       id: req.user.id,
-      name: name.trim(),
+      name: cleanName,
       mobile: req.user.mobile || '',
-      email: email ? email.trim() : '',
-      address: address ? address.trim() : '',
+      email: cleanEmail,
+      address: cleanAddress,
       customerType: req.user.customerType || 'retail',
       role: 'customer'
     });
@@ -92,17 +102,29 @@ router.get('/catalog', (req, res) => {
   res.json(catalog);
 });
 
-// Get customer's own orders (strict data isolation enforced server-side)
+// Get customer's own orders (matches by customerId OR matching mobile number)
 router.get('/orders', (req, res) => {
   const customerId = req.user.id;
-  const orders = db.find('orders', o => o.customerId === customerId);
+  const userMobile = req.user.mobile ? req.user.mobile.toString().replace(/\D/g, '').slice(-10) : '';
+
+  const orders = db.find('orders', o => {
+    if (o.customerId === customerId) return true;
+    if (userMobile && o.customerDetails?.mobile) {
+      const orderMobile = o.customerDetails.mobile.toString().replace(/\D/g, '').slice(-10);
+      if (orderMobile === userMobile) return true;
+    }
+    return false;
+  });
   
-  // Return orders with base64 PDF omitted for lighter payload, unless requested specifically
-  const ordersSummary = orders.map(o => {
+  // Sort latest first
+  const sorted = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  // Return orders with base64 PDF omitted for lighter payload
+  const ordersSummary = sorted.map(o => {
     const { originalPdfBase64, ...rest } = o;
     return {
       ...rest,
-      hasOriginalBill: !!originalPdfBase64
+      hasOriginalBill: !!(o.status === 'finalized' || originalPdfBase64)
     };
   });
 
@@ -165,6 +187,7 @@ router.post('/orders', (req, res) => {
 router.get('/orders/:id/original-bill', (req, res) => {
   const orderId = req.params.id;
   const customerId = req.user.id;
+  const userMobile = req.user.mobile ? req.user.mobile.toString().replace(/\D/g, '').slice(-10) : '';
 
   const order = db.findOne('orders', o => o.id === orderId);
 
@@ -173,18 +196,22 @@ router.get('/orders/:id/original-bill', (req, res) => {
   }
 
   // Ensure this order belongs to the requesting customer
-  if (order.customerId !== customerId) {
+  const orderMobile = order.customerDetails?.mobile ? order.customerDetails.mobile.toString().replace(/\D/g, '').slice(-10) : '';
+  const isOwner = order.customerId === customerId || (userMobile && orderMobile === userMobile);
+
+  if (!isOwner) {
     return res.status(403).json({ error: 'Access denied: You do not own this order' });
   }
 
   // Enforce server-side gate: only return the PDF data if the order is finalized
-  if (order.status !== 'finalized' || !order.originalPdfBase64) {
+  if (order.status !== 'finalized') {
     return res.status(403).json({ error: 'Access denied: Original Bill is not ready or approved yet' });
   }
 
   res.json({
     orderId: order.id,
-    pdfBase64: order.originalPdfBase64
+    pdfBase64: order.originalPdfBase64 || null,
+    order: order
   });
 });
 

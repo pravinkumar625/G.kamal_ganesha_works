@@ -42,10 +42,18 @@ router.post('/login/customer', (req, res) => {
     if (cleanEmail && customer.email !== cleanEmail) {
       updates.email = cleanEmail;
     }
+    if (customer.deleted) {
+      updates.deleted = false;
+      updates.deletedAt = null;
+    }
     db.update('users', customer.id, updates);
     customer.customerType = selectedType;
     customer.mobile = normalizedMobile;
     if (updates.email) customer.email = cleanEmail;
+    if (customer.deleted) {
+      customer.deleted = false;
+      customer.deletedAt = null;
+    }
   }
 
   // Create login log entry

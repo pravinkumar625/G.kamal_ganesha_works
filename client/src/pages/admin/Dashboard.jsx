@@ -743,6 +743,8 @@ const AdminDashboard = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to approve order');
 
+      // Optimistic state update
+      setOrders(prev => prev.map(o => o.id === approvingOrder.id ? { ...o, status: 'finalized', rejectionReason: '' } : o));
       setSuccess(`Order #${approvingOrder.id} has been accepted & approved successfully!`);
       setApprovingOrder(null);
       fetchAllData();
@@ -777,17 +779,20 @@ const AdminDashboard = () => {
     setLoading(true);
 
     try {
+      const reasonToSet = (rejectionReason && rejectionReason.trim()) || 'Cannot fulfill order at this time / Out of stock';
       const res = await fetch(`/api/admin/orders/${rejectingOrder.id}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         },
-        body: JSON.stringify({ reason: (rejectionReason && rejectionReason.trim()) || 'Cannot fulfill order at this time / Out of stock' })
+        body: JSON.stringify({ reason: reasonToSet })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reject order');
 
+      // Optimistic state update
+      setOrders(prev => prev.map(o => o.id === rejectingOrder.id ? { ...o, status: 'rejected', rejectionReason: reasonToSet } : o));
       setSuccess(`Order #${rejectingOrder.id} marked as Rejected.`);
       setRejectingOrder(null);
       fetchAllData();
@@ -795,6 +800,33 @@ const AdminDashboard = () => {
       console.error('Error rejecting order:', err);
       setRejectModalError(err.message || 'Failed to reject order.');
       setError(err.message || 'Failed to reject order.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- RESET ORDER TO PENDING REVIEW ---
+  const handleResetToPending = async (order) => {
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}/reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset order');
+
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'pending_review', rejectionReason: '' } : o));
+      setSuccess(`Order #${order.id} status reset to Pending Review.`);
+      fetchAllData();
+    } catch (err) {
+      console.error('Error resetting order:', err);
+      setError(err.message || 'Failed to reset order status');
     } finally {
       setLoading(false);
     }
@@ -1133,48 +1165,65 @@ const AdminDashboard = () => {
                                     <Edit size={13} />
                                   </button>
 
-                                  {order.status === 'finalized' ? (
-                                    <button
-                                      onClick={() => downloadBillPDF(order)}
-                                      className="flex items-center gap-1 bg-green-50 text-green-700 hover:bg-green-100 px-2.5 py-1.5 rounded border border-green-200 font-bold text-xs shadow-sm transition-all"
-                                      title="Download Approved Final PDF Bill"
-                                    >
-                                      <Download size={13} />
-                                      <span>PDF</span>
-                                    </button>
-                                  ) : (
-                                    <>
-                                      {/* Accept / Approve Button */}
-                                      <button
-                                        onClick={() => startApproveOrder(order)}
-                                        className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded font-bold text-xs shadow-sm transition-all"
-                                        title="Accept & Finalize Order (Send Final Bill via SMS)"
-                                      >
-                                        <CheckCircle size={13} />
-                                        <span>Accept</span>
-                                      </button>
+                                  {/* Download PDF Bill */}
+                                  <button
+                                    onClick={() => downloadBillPDF(order)}
+                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded border font-bold text-xs shadow-sm transition-all ${
+                                      order.status === 'finalized'
+                                        ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
+                                        : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200'
+                                    }`}
+                                    title={order.status === 'finalized' ? "Download Approved Final PDF Bill" : "Download Checking Bill PDF"}
+                                  >
+                                    <Download size={13} />
+                                    <span>PDF</span>
+                                  </button>
 
-                                      {/* Reject Button */}
-                                      {order.status !== 'rejected' ? (
-                                        <button
-                                          onClick={() => startRejectOrder(order)}
-                                          className="flex items-center gap-1 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded font-bold text-xs shadow-sm transition-all"
-                                          title="Reject Order & Specify Reason"
-                                        >
-                                          <XCircle size={13} />
-                                          <span>Reject</span>
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => startRejectOrder(order)}
-                                          className="flex items-center gap-1 bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-2 py-1.5 rounded font-semibold text-[10px]"
-                                          title="Modify Rejection Reason"
-                                        >
-                                          <Edit size={11} />
-                                          <span>Reason</span>
-                                        </button>
-                                      )}
-                                    </>
+                                  {/* Accept / Approve Button (shown if not already finalized) */}
+                                  {order.status !== 'finalized' && (
+                                    <button
+                                      onClick={() => startApproveOrder(order)}
+                                      className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded font-bold text-xs shadow-sm transition-all"
+                                      title="Accept & Finalize Order (Send Final Bill via SMS)"
+                                    >
+                                      <CheckCircle size={13} />
+                                      <span>Accept</span>
+                                    </button>
+                                  )}
+
+                                  {/* Reject Button (shown if not rejected) */}
+                                  {order.status !== 'rejected' && (
+                                    <button
+                                      onClick={() => startRejectOrder(order)}
+                                      className="flex items-center gap-1 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded font-bold text-xs shadow-sm transition-all"
+                                      title="Reject Order & Specify Reason"
+                                    >
+                                      <XCircle size={13} />
+                                      <span>Reject</span>
+                                    </button>
+                                  )}
+
+                                  {/* Modify Rejection Reason (shown if rejected) */}
+                                  {order.status === 'rejected' && (
+                                    <button
+                                      onClick={() => startRejectOrder(order)}
+                                      className="flex items-center gap-1 bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-2 py-1.5 rounded font-semibold text-[10px]"
+                                      title="Modify Rejection Reason"
+                                    >
+                                      <Edit size={11} />
+                                      <span>Reason</span>
+                                    </button>
+                                  )}
+
+                                  {/* Reset / Reopen Order to Pending Review (shown if finalized or rejected) */}
+                                  {order.status !== 'pending_review' && (
+                                    <button
+                                      onClick={() => handleResetToPending(order)}
+                                      className="p-1.5 text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 rounded border border-amber-200"
+                                      title="Reopen / Reset status to Pending Review"
+                                    >
+                                      <RotateCcw size={13} />
+                                    </button>
                                   )}
 
                                   {/* Delete Order Button */}

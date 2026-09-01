@@ -1,31 +1,58 @@
 const fs = require('fs');
 const path = require('path');
 
+let MongoClient = null;
+try {
+  MongoClient = require('mongodb').MongoClient;
+} catch (e) {
+  // MongoDB optional
+}
+
 const BUNDLED_DB_FILE = path.join(__dirname, 'data', 'db.json');
 const DB_FILE = process.env.VERCEL ? path.join('/tmp', 'db.json') : BUNDLED_DB_FILE;
 
 let memoryCache = null;
+let mongoClient = null;
+let mongoDb = null;
 
-// Ensure database directory and file exist, load into memoryCache once
+async function getMongoDb() {
+  if (mongoDb) return mongoDb;
+  if (!process.env.MONGODB_URI || !MongoClient) return null;
+
+  try {
+    mongoClient = new MongoClient(process.env.MONGODB_URI);
+    await mongoClient.connect();
+    mongoDb = mongoClient.db();
+    console.log('Connected to MongoDB Atlas successfully!');
+    return mongoDb;
+  } catch (err) {
+    console.error('Failed to connect to MongoDB Atlas:', err);
+    return null;
+  }
+}
+
+// Default initial database state
+const defaultData = {
+  users: [],
+  ganesha_items: [
+    { id: '1', name: 'Clay Bal Ganesha', size: '1/2 ft', retailPrice: 450, wholesalePrice: 350 },
+    { id: '2', name: 'Clay Bal Ganesha', size: '1 ft', retailPrice: 900, wholesalePrice: 750 },
+    { id: '3', name: 'Traditional Ganesha', size: '1.5 ft', retailPrice: 1800, wholesalePrice: 1500 },
+    { id: '4', name: 'Traditional Ganesha', size: '2 ft', retailPrice: 3200, wholesalePrice: 2700 },
+    { id: '5', name: 'Royal Durbar Ganesha', size: '3 ft', retailPrice: 6500, wholesalePrice: 5500 }
+  ],
+  orders: [],
+  login_logs: [],
+  settings: {
+    smtp: { host: '', port: 587, secure: false, authUser: '', authPass: '', fromEmail: '' },
+    whatsapp: { accountSid: '', authToken: '', fromNumber: '' },
+    sms: { accountSid: '', authToken: '', fromNumber: '' }
+  }
+};
+
+// Ensure database directory and file exist, load into memoryCache
 function initDB() {
   if (memoryCache) return memoryCache;
-
-  const defaultData = {
-    users: [],
-    ganesha_items: [
-      { id: '1', name: 'Clay Bal Ganesha', size: '1/2 ft', retailPrice: 450, wholesalePrice: 350 },
-      { id: '2', name: 'Clay Bal Ganesha', size: '1 ft', retailPrice: 900, wholesalePrice: 750 },
-      { id: '3', name: 'Traditional Ganesha', size: '1.5 ft', retailPrice: 1800, wholesalePrice: 1500 },
-      { id: '4', name: 'Traditional Ganesha', size: '2 ft', retailPrice: 3200, wholesalePrice: 2700 },
-      { id: '5', name: 'Royal Durbar Ganesha', size: '3 ft', retailPrice: 6500, wholesalePrice: 5500 }
-    ],
-    orders: [],
-    login_logs: [],
-    settings: {
-      smtp: { host: '', port: 587, secure: false, authUser: '', authPass: '', fromEmail: '' },
-      whatsapp: { accountSid: '', authToken: '', fromNumber: '' }
-    }
-  };
 
   try {
     const dir = path.dirname(DB_FILE);
@@ -39,21 +66,23 @@ function initDB() {
     } else if (fs.existsSync(BUNDLED_DB_FILE)) {
       const bundledContent = fs.readFileSync(BUNDLED_DB_FILE, 'utf-8');
       memoryCache = JSON.parse(bundledContent);
-      fs.writeFileSync(DB_FILE, bundledContent, 'utf-8');
+      try { fs.writeFileSync(DB_FILE, bundledContent, 'utf-8'); } catch (e) {}
     } else {
-      memoryCache = defaultData;
-      fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2), 'utf-8');
+      memoryCache = JSON.parse(JSON.stringify(defaultData));
+      try { fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2), 'utf-8'); } catch (e) {}
     }
   } catch (err) {
     console.error('initDB error loading file, using defaults/in-memory:', err);
-    memoryCache = defaultData;
+    memoryCache = JSON.parse(JSON.stringify(defaultData));
   }
 
   // Ensure all collections exist
-  if (!memoryCache.users) memoryCache.users = [];
-  if (!memoryCache.ganesha_items) memoryCache.ganesha_items = defaultData.ganesha_items;
-  if (!memoryCache.orders) memoryCache.orders = [];
-  if (!memoryCache.login_logs) memoryCache.login_logs = [];
+  if (!Array.isArray(memoryCache.users)) memoryCache.users = [];
+  if (!Array.isArray(memoryCache.ganesha_items) || memoryCache.ganesha_items.length === 0) {
+    memoryCache.ganesha_items = defaultData.ganesha_items;
+  }
+  if (!Array.isArray(memoryCache.orders)) memoryCache.orders = [];
+  if (!Array.isArray(memoryCache.login_logs)) memoryCache.login_logs = [];
   if (!memoryCache.settings) memoryCache.settings = defaultData.settings;
 
   return memoryCache;
@@ -67,7 +96,7 @@ function readData() {
   return memoryCache;
 }
 
-// Write database to disk safely (and sync to Vercel KV if available)
+// Write database to disk safely (and sync to Vercel KV / MongoDB if available)
 function writeData(data) {
   memoryCache = data;
   try {
@@ -77,13 +106,15 @@ function writeData(data) {
     }
     const jsonStr = JSON.stringify(data, null, 2);
     fs.writeFileSync(DB_FILE, jsonStr, 'utf-8');
+    
+    // Also update bundled file if local
     if (!process.env.VERCEL && DB_FILE !== BUNDLED_DB_FILE) {
       try {
         fs.writeFileSync(BUNDLED_DB_FILE, jsonStr, 'utf-8');
       } catch (e) {}
     }
 
-    // Save to Vercel KV in the background (fire and forget)
+    // Save to Vercel KV if configured
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       fetch(process.env.KV_REST_API_URL, {
         method: 'POST',
@@ -100,11 +131,11 @@ function writeData(data) {
     return true;
   } catch (err) {
     console.error('Error writing DB file to disk:', err);
-    return true; // Return true as in-memory state is preserved
+    return true;
   }
 }
 
-// Asynchronously load database from Vercel KV if environment variables are present
+// Asynchronously load database from Vercel KV or MongoDB if environment variables are present
 let kvLoadingPromise = null;
 function loadFromKV() {
   if (kvLoadingPromise) return kvLoadingPromise;
@@ -126,18 +157,16 @@ function loadFromKV() {
       .then(data => {
         if (data && data.result) {
           const parsed = JSON.parse(data.result);
-          if (parsed && typeof parsed === 'object') {
+          if (parsed && typeof parsed === 'object' && parsed.users) {
             memoryCache = parsed;
             console.log('Database loaded successfully from Vercel KV store!');
           }
-        } else {
-          console.log('Vercel KV store is empty. Initializing with local/bundled data.');
         }
-        return memoryCache;
+        return memoryCache || initDB();
       })
       .catch(err => {
         console.error('Failed to load from Vercel KV, using local files:', err);
-        return memoryCache;
+        return memoryCache || initDB();
       });
   } else {
     kvLoadingPromise = Promise.resolve(memoryCache || initDB());
@@ -182,7 +211,6 @@ const db = {
 
     if (collectionName === 'orders') {
       const currentYear = new Date().getFullYear().toString();
-      // Filter existing orders that start with current year prefix
       const yearOrders = items.filter(o => o.id && o.id.startsWith(`${currentYear}-`));
       
       let maxSeq = 0;
@@ -236,14 +264,15 @@ const db = {
   // Settings specific helpers
   getSettings() {
     const data = readData();
-    return data.settings || { smtp: {}, whatsapp: {} };
+    return data.settings || { smtp: {}, whatsapp: {}, sms: {} };
   },
 
   saveSettings(newSettings) {
     const data = readData();
     data.settings = {
       smtp: { ...(data.settings?.smtp || {}), ...(newSettings.smtp || {}) },
-      whatsapp: { ...(data.settings?.whatsapp || {}), ...(newSettings.whatsapp || {}) }
+      whatsapp: { ...(data.settings?.whatsapp || {}), ...(newSettings.whatsapp || {}) },
+      sms: { ...(data.settings?.sms || {}), ...(newSettings.sms || {}) }
     };
     return writeData(data);
   },

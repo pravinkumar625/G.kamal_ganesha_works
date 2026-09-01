@@ -10,15 +10,24 @@ router.use(requireRole('admin'));
 
 // --- ORDERS ENDPOINTS ---
 
-// Get all orders
+// Get all orders (optimized for lightweight payload by omitting heavy base64 strings during auto-sync)
 router.get('/orders', (req, res) => {
   const orders = db.getCollection('orders');
   // Sort orders by creation date descending
-  const sorted = orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json(sorted);
+  const sorted = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  const sanitized = sorted.map(o => {
+    const { originalPdfBase64, ...rest } = o;
+    return {
+      ...rest,
+      hasOriginalBill: !!(o.status === 'finalized' || originalPdfBase64)
+    };
+  });
+
+  res.json(sanitized);
 });
 
-// Get a single order
+// Get a single order with full details
 router.get('/orders/:id', (req, res) => {
   const order = db.findOne('orders', o => o.id === req.params.id);
   if (!order) {
@@ -90,10 +99,10 @@ router.post('/orders', (req, res) => {
   res.status(201).json(newOrder);
 });
 
-// Edit an order's contents
+// Edit an order's contents / status
 router.put('/orders/:id', (req, res) => {
   const orderId = req.params.id;
-  const { customerDetails, items, grandTotal, advancePayment, balanceDue, status } = req.body;
+  const { customerDetails, items, grandTotal, advancePayment, balanceDue, status, rejectionReason } = req.body;
 
   const order = db.findOne('orders', o => o.id === orderId);
   if (!order) {
@@ -108,7 +117,13 @@ router.put('/orders/:id', (req, res) => {
   if (grandTotal !== undefined) updates.grandTotal = Number(grandTotal);
   if (advancePayment !== undefined) updates.advancePayment = Number(advancePayment);
   if (balanceDue !== undefined) updates.balanceDue = Number(balanceDue);
-  if (status) updates.status = status;
+  if (status) {
+    updates.status = status;
+    if (status === 'pending_review') {
+      updates.rejectionReason = '';
+    }
+  }
+  if (rejectionReason !== undefined) updates.rejectionReason = rejectionReason;
 
   const updatedOrder = db.update('orders', orderId, updates);
   res.json({ message: 'Order updated successfully', order: updatedOrder });
@@ -136,16 +151,12 @@ router.post('/orders/:id/approve', async (req, res) => {
 
   const updates = {
     status: 'finalized',
+    rejectionReason: '',
     billSentLogs: order.billSentLogs || []
   };
 
   if (pdfBase64) {
     updates.originalPdfBase64 = pdfBase64;
-  }
-
-  // If order was previously rejected, clear rejection status
-  if (order.status === 'rejected') {
-    updates.rejectionReason = '';
   }
 
   const logs = [...updates.billSentLogs];
@@ -215,6 +226,23 @@ router.post('/orders/:id/reject', (req, res) => {
 
   const updatedOrder = db.update('orders', orderId, updates);
   res.json({ message: 'Order rejected successfully', order: updatedOrder });
+});
+
+// Reset Order to Pending Review
+router.post('/orders/:id/reset', (req, res) => {
+  const orderId = req.params.id;
+  const order = db.findOne('orders', o => o.id === orderId);
+  if (!order) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+
+  const updates = {
+    status: 'pending_review',
+    rejectionReason: ''
+  };
+
+  const updatedOrder = db.update('orders', orderId, updates);
+  res.json({ message: 'Order reset to Pending Review successfully', order: updatedOrder });
 });
 
 // --- CATALOG MANAGEMENT ENDPOINTS ---
@@ -289,7 +317,15 @@ router.get('/customers', (req, res) => {
 
   // Enrich customer profiles with registration details, order stats, and deletion status
   const enriched = customers.map(c => {
-    const customerOrders = orders.filter(o => o.customerId === c.id);
+    const normCustMobile = c.mobile ? c.mobile.replace(/\D/g, '').slice(-10) : '';
+    const customerOrders = orders.filter(o => {
+      if (o.customerId === c.id) return true;
+      if (normCustMobile && o.customerDetails?.mobile) {
+        return o.customerDetails.mobile.replace(/\D/g, '').slice(-10) === normCustMobile;
+      }
+      return false;
+    });
+
     const totalOrders = customerOrders.length;
     const totalSpent = customerOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
     const balanceDue = customerOrders.reduce((sum, o) => sum + (o.balanceDue || 0), 0);
@@ -316,6 +352,7 @@ router.get('/customers', (req, res) => {
         advancePayment: o.advancePayment,
         balanceDue: o.balanceDue,
         status: o.status,
+        rejectionReason: o.rejectionReason || '',
         items: o.items
       }))
     };

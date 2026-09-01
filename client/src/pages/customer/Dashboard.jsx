@@ -54,33 +54,22 @@ const CustomerDashboard = () => {
       return;
     }
 
-    const parsedUser = JSON.parse(storedUser);
-    
-    // Check customer-specific localStorage cache
-    const localProfileKey = `customerProfile_${parsedUser.mobile}`;
-    const savedLocalProfile = localStorage.getItem(localProfileKey);
-    if (savedLocalProfile) {
-      try {
-        const lp = JSON.parse(savedLocalProfile);
-        if (lp.name && lp.name !== 'New Customer') {
-          parsedUser.name = lp.name;
-          parsedUser.email = lp.email || parsedUser.email;
-          parsedUser.address = lp.address || parsedUser.address;
-        }
-      } catch (e) {}
-    }
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      setProfileForm({
+        name: (parsedUser.name && parsedUser.name !== 'New Customer' ? parsedUser.name : '') || '',
+        email: parsedUser.email || '',
+        address: parsedUser.address || ''
+      });
 
-    setUser(parsedUser);
-    setProfileForm({
-      name: (parsedUser.name && parsedUser.name !== 'New Customer' ? parsedUser.name : '') || '',
-      email: parsedUser.email || '',
-      address: parsedUser.address || ''
-    });
-
-    if (!parsedUser.name || parsedUser.name === 'New Customer') {
-      setIsEditingProfile(true);
-    } else {
-      setIsEditingProfile(false);
+      if (!parsedUser.name || parsedUser.name === 'New Customer') {
+        setIsEditingProfile(true);
+      } else {
+        setIsEditingProfile(false);
+      }
+    } catch (e) {
+      console.error('Error parsing stored user:', e);
     }
 
     fetchProfile();
@@ -105,15 +94,14 @@ const CustomerDashboard = () => {
       });
       if (response.ok) {
         const data = await response.json();
+        setUser(prev => ({ ...prev, ...data }));
+        setProfileForm({
+          name: (data.name && data.name !== 'New Customer' ? data.name : '') || '',
+          email: data.email || '',
+          address: data.address || ''
+        });
+        localStorage.setItem('customerUser', JSON.stringify(data));
         if (data.name && data.name !== 'New Customer') {
-          setUser(prev => ({ ...prev, ...data }));
-          setProfileForm({
-            name: data.name || '',
-            email: data.email || '',
-            address: data.address || ''
-          });
-          localStorage.setItem(`customerProfile_${data.mobile}`, JSON.stringify(data));
-          localStorage.setItem('customerUser', JSON.stringify(data));
           setIsEditingProfile(false);
         }
       }
@@ -328,7 +316,7 @@ const CustomerDashboard = () => {
     downloadPDFBlob(doc, `Checking_Bill_${order.id}.pdf`);
   };
 
-  // Fetch approved Original Bill PDF (Server-gated endpoint)
+  // Fetch approved Original Bill PDF (Server-gated endpoint with fallback generation)
   const downloadServerOriginalBill = async (orderId) => {
     setError('');
     try {
@@ -343,16 +331,33 @@ const CustomerDashboard = () => {
         throw new Error(data.error || 'Failed to download original bill');
       }
 
-      // Download base64 PDF
-      const pdfBase64 = data.pdfBase64;
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pdfBase64;
-      downloadLink.download = `Original_Ganesha_Bill_${orderId}.pdf`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
+      if (data.pdfBase64 && data.pdfBase64.startsWith('data:application/pdf')) {
+        const downloadLink = document.createElement('a');
+        downloadLink.href = data.pdfBase64;
+        downloadLink.download = `Original_Ganesha_Bill_${orderId}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      } else {
+        // Fallback: Generate approved Original Bill with official watermark
+        const targetOrder = data.order || orders.find(o => o.id === orderId);
+        if (targetOrder) {
+          const doc = generateBillPDF(targetOrder, 'G.kamal ganesha works', false);
+          downloadPDFBlob(doc, `Original_Ganesha_Bill_${orderId}.pdf`);
+        } else {
+          throw new Error('Order details not found');
+        }
+      }
     } catch (err) {
-      setError(err.message || 'Access Denied: Original Bill not finalized.');
+      console.error('Error downloading bill:', err);
+      // Client-side fallback if order exists in local state
+      const targetOrder = orders.find(o => o.id === orderId);
+      if (targetOrder && targetOrder.status === 'finalized') {
+        const doc = generateBillPDF(targetOrder, 'G.kamal ganesha works', false);
+        downloadPDFBlob(doc, `Original_Ganesha_Bill_${orderId}.pdf`);
+      } else {
+        setError(err.message || 'Access Denied: Original Bill not finalized.');
+      }
     }
   };
 
