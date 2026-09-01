@@ -391,8 +391,23 @@ router.put('/customers/:id/adjust-amount', (req, res) => {
 // Get customer login activities
 router.get('/login-activity', (req, res) => {
   const logs = db.getCollection('login_logs');
-  // Sort descending by timestamp
-  const sorted = logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const users = db.getCollection('users');
+  
+  const enriched = logs.map(log => {
+    const user = users.find(u => 
+      u.id === log.customerId || 
+      (u.mobile && log.mobile && u.mobile.slice(-10) === log.mobile.slice(-10))
+    );
+    return {
+      ...log,
+      name: (user && user.name && user.name !== 'New Customer') ? user.name : (log.name || 'Customer'),
+      customerType: user ? (user.customerType || 'retail') : (log.customerType || 'retail'),
+      email: (user && user.email) || log.email || '',
+      mobile: (user && user.mobile) || log.mobile || ''
+    };
+  });
+
+  const sorted = enriched.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   res.json(sorted);
 });
 

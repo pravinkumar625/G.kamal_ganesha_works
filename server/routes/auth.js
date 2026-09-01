@@ -59,11 +59,15 @@ router.post('/login/customer', (req, res) => {
 
   // Create login log entry
   const userAgent = req.headers['user-agent'] || 'Unknown Device';
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   db.insert('login_logs', {
     customerId: customer.id,
-    name: customer.name || 'New Customer',
+    name: (customer.name && customer.name !== 'New Customer') ? customer.name : 'Customer',
     email: cleanEmail || customer.email || '',
     mobile: normalizedMobile,
+    customerType: customer.customerType || selectedType,
+    role: 'customer',
+    ip: ip || '127.0.0.1',
     timestamp: new Date().toISOString(),
     userAgent: userAgent
   });
