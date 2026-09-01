@@ -328,7 +328,8 @@ const db = {
     return writeData(data);
   },
 
-  loadFromKV
+  loadFromStorage,
+  loadFromKV: loadFromStorage
 };
 
 module.exports = db;
