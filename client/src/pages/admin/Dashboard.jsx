@@ -937,21 +937,19 @@ const AdminDashboard = () => {
   });
 
   return (
-    <div className="min-h-screen flex flex-col justify-between relative bg-devotional-cream text-devotional-maroon">
-      <div className="w-full bg-devotional-maroon h-3 relative z-10 border-b border-devotional-gold"></div>
-
-      <main className="relative z-10 flex-grow max-w-7xl mx-auto w-full px-4 py-8">
+    <div className="min-h-screen flex flex-col justify-between relative text-[#f7f9fa]">
+      <main className="relative z-10 flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 py-6">
         
         {/* Header Banner */}
-        <div className="flex flex-col md:flex-row justify-between items-center bg-gradient-to-r from-[#5a1414] to-devotional-maroonDark border border-devotional-gold/30 rounded-2xl p-6 shadow-lg mb-8 gap-4 text-devotional-cream">
-          <div className="flex items-center gap-3">
-            <DiyaDecoration className="w-10 h-10" />
+        <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/30 shadow-2xl mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <DiyaDecoration className="w-12 h-12 animate-float" />
             <div>
-              <h2 className="text-xl font-extrabold uppercase tracking-wide text-devotional-gold">
+              <h2 className="font-cinzel text-xl sm:text-2xl font-extrabold text-gold-gradient tracking-wide uppercase">
                 Admin Control Dashboard
               </h2>
-              <p className="text-xs text-devotional-cream/80 font-medium">
-                G.Kamal Ganesha Works Workshop Manager
+              <p className="text-xs text-[#ffebc2] font-medium mt-0.5">
+                G.Kamal Ganesha Works • Workshop Manager & Operations
               </p>
             </div>
           </div>
@@ -960,7 +958,7 @@ const AdminDashboard = () => {
             {/* Create Order Trigger */}
             <button
               onClick={handleOpenCreateOrder}
-              className="flex items-center gap-2 bg-gradient-to-r from-devotional-orange to-red-600 hover:from-devotional-marigold hover:to-devotional-orange text-white px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all shadow-md"
+              className="btn-gold px-4 py-2.5 text-xs flex items-center gap-2 shadow-xl hover:scale-105 transition-transform"
             >
               <Plus size={15} />
               <span>+ Create Order</span>
@@ -968,7 +966,7 @@ const AdminDashboard = () => {
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 bg-red-950/60 hover:bg-red-900 border border-red-800 text-red-100 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+              className="flex items-center gap-2 bg-red-950/40 hover:bg-red-900/40 border border-red-500/30 text-red-300 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
             >
               <LogOut size={14} />
               <span>Sign Out</span>
@@ -977,20 +975,20 @@ const AdminDashboard = () => {
         </div>
 
         {/* Global Live Search Bar */}
-        <div className="mb-6 bg-white/90 backdrop-blur-sm border border-devotional-gold/30 p-3.5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center gap-3">
+        <div className="mb-6 glass-panel p-3.5 border border-[#ffd700]/25 shadow-lg flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-grow w-full">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-devotional-maroon/60" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#ffd700]/60" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Customer Name, Phone Number, Order ID (e.g. 2026-001), or Date (e.g. 2026-08-31)..."
-              className="w-full pl-10 pr-10 py-2 bg-devotional-cream/25 border border-devotional-gold/25 rounded-xl text-xs outline-none focus:border-devotional-orange text-gray-800 font-medium"
+              placeholder="Search by Customer Name, Phone Number, Order ID (e.g. 2026-001), or Date..."
+              className="w-full pl-10 pr-10 py-2.5 input-glass text-xs"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
                 title="Clear Search"
               >
                 <X size={14} />
@@ -998,22 +996,22 @@ const AdminDashboard = () => {
             )}
           </div>
           {searchQuery && (
-            <span className="text-[11px] font-bold text-devotional-maroon whitespace-nowrap bg-devotional-gold/15 px-3 py-1.5 rounded-lg border border-devotional-gold/20">
+            <span className="text-[11px] font-bold text-[#ffd700] whitespace-nowrap bg-[#ffd700]/15 px-3 py-1.5 rounded-lg border border-[#ffd700]/30">
               Filtering by: "{searchQuery}"
             </span>
           )}
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2 animate-fadeIn">
-            <AlertCircle size={16} />
+          <div className="mb-6 p-4 bg-red-950/70 border border-red-500/60 rounded-xl text-red-200 text-xs flex items-center gap-2 animate-fadeIn">
+            <AlertCircle size={16} className="text-red-400 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-xs flex items-center gap-2 animate-fadeIn">
-            <CheckCircle size={16} />
+          <div className="mb-6 p-4 bg-emerald-950/70 border border-emerald-500/60 rounded-xl text-emerald-200 text-xs flex items-center gap-2 animate-fadeIn">
+            <CheckCircle size={16} className="text-emerald-400 shrink-0" />
             <span>{success}</span>
           </div>
         )}
@@ -1025,10 +1023,10 @@ const AdminDashboard = () => {
           <div className="lg:col-span-1 space-y-2">
             <button
               onClick={() => setActiveTab('orders')}
-              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-cinzel font-bold uppercase tracking-wider transition-all border ${
                 activeTab === 'orders'
-                  ? 'bg-devotional-maroon text-white border-devotional-maroon shadow-md'
-                  : 'bg-white text-devotional-maroon border-gray-100 hover:border-devotional-gold/25'
+                  ? 'btn-gold shadow-lg'
+                  : 'glass-panel text-[#ffebc2] border-[#ffd700]/15 hover:border-[#ffd700]/40'
               }`}
             >
               <Inbox size={16} />
@@ -1036,10 +1034,10 @@ const AdminDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab('catalog')}
-              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-cinzel font-bold uppercase tracking-wider transition-all border ${
                 activeTab === 'catalog'
-                  ? 'bg-devotional-maroon text-white border-devotional-maroon shadow-md'
-                  : 'bg-white text-devotional-maroon border-gray-100 hover:border-devotional-gold/25'
+                  ? 'btn-gold shadow-lg'
+                  : 'glass-panel text-[#ffebc2] border-[#ffd700]/15 hover:border-[#ffd700]/40'
               }`}
             >
               <Database size={16} />
@@ -1047,10 +1045,10 @@ const AdminDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab('customers')}
-              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-cinzel font-bold uppercase tracking-wider transition-all border ${
                 activeTab === 'customers'
-                  ? 'bg-devotional-maroon text-white border-devotional-maroon shadow-md'
-                  : 'bg-white text-devotional-maroon border-gray-100 hover:border-devotional-gold/25'
+                  ? 'btn-gold shadow-lg'
+                  : 'glass-panel text-[#ffebc2] border-[#ffd700]/15 hover:border-[#ffd700]/40'
               }`}
             >
               <Users size={16} />
@@ -1058,10 +1056,10 @@ const AdminDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab('revenue')}
-              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-cinzel font-bold uppercase tracking-wider transition-all border ${
                 activeTab === 'revenue'
-                  ? 'bg-devotional-maroon text-white border-devotional-maroon shadow-md'
-                  : 'bg-white text-devotional-maroon border-gray-100 hover:border-devotional-gold/25'
+                  ? 'btn-gold shadow-lg'
+                  : 'glass-panel text-[#ffebc2] border-[#ffd700]/15 hover:border-[#ffd700]/40'
               }`}
             >
               <TrendingUp size={16} />
@@ -1069,10 +1067,10 @@ const AdminDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab('activity')}
-              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-cinzel font-bold uppercase tracking-wider transition-all border ${
                 activeTab === 'activity'
-                  ? 'bg-devotional-maroon text-white border-devotional-maroon shadow-md'
-                  : 'bg-white text-devotional-maroon border-gray-100 hover:border-devotional-gold/25'
+                  ? 'btn-gold shadow-lg'
+                  : 'glass-panel text-[#ffebc2] border-[#ffd700]/15 hover:border-[#ffd700]/40'
               }`}
             >
               <Activity size={16} />
@@ -1080,10 +1078,10 @@ const AdminDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab('add_admin')}
-              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+              className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-cinzel font-bold uppercase tracking-wider transition-all border ${
                 activeTab === 'add_admin'
-                  ? 'bg-devotional-maroon text-white border-devotional-maroon shadow-md'
-                  : 'bg-white text-devotional-maroon border-gray-100 hover:border-devotional-gold/25'
+                  ? 'btn-gold shadow-lg'
+                  : 'glass-panel text-[#ffebc2] border-[#ffd700]/15 hover:border-[#ffd700]/40'
               }`}
             >
               <UserPlus size={16} />
@@ -1091,7 +1089,7 @@ const AdminDashboard = () => {
             </button>
           </div>
 
-          <div className="lg:col-span-4 bg-white/80 backdrop-blur-sm border border-devotional-gold/20 rounded-2xl p-6 shadow-md min-h-[50vh]">
+          <div className="lg:col-span-4 glass-panel border border-[#ffd700]/25 rounded-2xl p-6 sm:p-8 shadow-2xl min-h-[50vh]">
             
             {/* TAB: ORDERS INTAKE */}
             {activeTab === 'orders' && (

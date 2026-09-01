@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DiyaDecoration from '../../components/DiyaDecoration';
 import Footer from '../../components/Footer';
-import { Phone, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { Phone, Lock, LogIn, AlertCircle, ShieldAlert, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
 const AdminLoginPage = () => {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -57,33 +58,36 @@ const AdminLoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between relative bg-devotional-cream text-devotional-maroon">
-      {/* Top Border Arch Decor */}
-      <div className="w-full bg-devotional-maroon h-3 relative z-10 border-b border-devotional-gold"></div>
-
+    <div className="min-h-screen flex flex-col justify-between relative text-[#f7f9fa]">
       <main className="relative z-10 flex-grow flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md bg-white/90 backdrop-blur-sm border-2 border-devotional-gold rounded-2xl p-8 shadow-xl relative overflow-hidden">
+        <div className="w-full max-w-md glass-panel p-8 sm:p-10 border-2 border-[#ffd700]/30 shadow-2xl relative overflow-hidden animate-fadeIn">
           
+          {/* Glowing Accents */}
+          <div className="absolute -top-16 -right-16 w-36 h-36 bg-[#ff6a00]/20 rounded-full blur-2xl pointer-events-none"></div>
+          <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-[#ffd700]/15 rounded-full blur-2xl pointer-events-none"></div>
+
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="flex justify-center mb-2">
-              <DiyaDecoration className="w-12 h-12" />
+            <div className="flex justify-center mb-3">
+              <div className="p-3 rounded-2xl bg-[#ffd700]/15 border border-[#ffd700]/30 text-[#ffd700] shadow-lg">
+                <ShieldAlert size={28} />
+              </div>
             </div>
-            <h2 className="text-2xl font-extrabold tracking-wide uppercase text-devotional-maroonDark">
+            <h2 className="font-cinzel text-2xl sm:text-3xl font-extrabold text-gold-gradient tracking-wide uppercase">
               Admin Control Center
             </h2>
-            <p className="text-xs text-devotional-gold font-bold tracking-wider uppercase mt-1">
+            <p className="text-xs text-[#ffd700] font-bold tracking-widest uppercase mt-1">
               G.Kamal Ganesha Works
             </p>
-            <p className="text-xs text-red-500 mt-1 font-semibold">
-              Restricted Area — Authorized Personnel Only
+            <p className="text-[11px] text-amber-300/80 mt-2 font-medium">
+              Authorized Personnel & Management Console
             </p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="mb-6 p-3.5 bg-red-50 border-l-4 border-red-500 rounded-r text-red-700 text-sm flex items-start gap-2 animate-pulse">
-              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <div className="mb-6 p-3.5 bg-red-950/60 border border-red-500/50 rounded-xl text-red-300 text-xs flex items-start gap-2.5 animate-pulse">
+              <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
               <span>{error}</span>
             </div>
           )}
@@ -92,43 +96,50 @@ const AdminLoginPage = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Mobile Field */}
             <div>
-              <label htmlFor="mobile" className="block text-xs font-bold uppercase tracking-wider text-devotional-maroon/80 mb-1.5">
-                Admin Mobile Number
+              <label htmlFor="adminMobile" className="block text-xs font-bold uppercase tracking-wider text-[#ffebc2] mb-1.5 font-cinzel">
+                Admin Mobile Number <span className="text-[#ff6a00]">*</span>
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-[#ffd700]/60 pointer-events-none">
                   <Phone size={16} />
                 </span>
                 <input
                   type="tel"
-                  id="mobile"
+                  id="adminMobile"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   required
                   placeholder="e.g. 9739142445"
-                  className="w-full pl-10 pr-4 py-3 bg-devotional-cream/30 border border-devotional-gold/20 rounded-xl focus:border-devotional-orange focus:ring-1 focus:ring-devotional-orange outline-none text-sm transition-all"
+                  className="w-full pl-10 pr-4 py-3 input-glass text-sm"
                 />
               </div>
             </div>
 
             {/* Password Field */}
             <div>
-              <label htmlFor="mobile" className="block text-xs font-bold uppercase tracking-wider text-devotional-maroon/80 mb-1.5">
-                Password
+              <label htmlFor="adminPassword" className="block text-xs font-bold uppercase tracking-wider text-[#ffebc2] mb-1.5 font-cinzel">
+                Password <span className="text-[#ff6a00]">*</span>
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-[#ffd700]/60 pointer-events-none">
                   <Lock size={16} />
                 </span>
                 <input
-                  type="password"
-                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  id="adminPassword"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-devotional-cream/30 border border-devotional-gold/20 rounded-xl focus:border-devotional-orange focus:ring-1 focus:ring-devotional-orange outline-none text-sm transition-all"
+                  className="w-full pl-10 pr-12 py-3 input-glass text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#ffd700]/60 hover:text-[#ffd700]"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -136,26 +147,27 @@ const AdminLoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-devotional-maroon to-devotional-maroonDark text-white font-bold py-3.5 rounded-xl hover:bg-gradient-to-r hover:from-devotional-maroonDark hover:to-red-950 transition-all duration-300 shadow-lg flex justify-center items-center gap-2 tracking-wide disabled:opacity-50 border border-devotional-gold/40"
+              className="w-full btn-gold py-3.5 flex justify-center items-center gap-2 text-sm shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50 mt-2"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-[#1a0003] border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <>
                   <LogIn size={18} />
-                  <span>Admin Secure Login</span>
+                  <span>Authenticate & Enter</span>
                 </>
               )}
             </button>
           </form>
 
           {/* Footer note */}
-          <div className="mt-8 text-center border-t border-gray-100 pt-4">
+          <div className="mt-8 text-center border-t border-[#ffd700]/15 pt-4">
             <button
               onClick={() => navigate('/')}
-              className="text-xs text-devotional-maroon hover:underline font-semibold"
+              className="text-xs text-[#ffd700] hover:text-white transition-colors flex items-center justify-center gap-1.5 mx-auto font-medium"
             >
-              ← Back to Main Page
+              <ArrowLeft size={13} />
+              <span>Back to Main Page</span>
             </button>
           </div>
         </div>

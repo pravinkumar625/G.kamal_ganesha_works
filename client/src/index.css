@@ -1,59 +1,257 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --primary-maroon: #4a0e17;
+  --secondary-maroon: #2b0308;
+  --accent-orange: #ff6a00;
+  --accent-gold: #ffd700;
+  --bg-gradient: linear-gradient(135deg, #200104 0%, #0a0001 100%);
+  --gold-gradient: linear-gradient(135deg, #ffe066 0%, #f5b041 50%, #d4af37 100%);
+  --orange-gradient: linear-gradient(135deg, #ff9933 0%, #ff5500 100%);
+  --glass-bg: rgba(74, 14, 23, 0.4);
+  --glass-bg-dark: rgba(26, 0, 3, 0.65);
+  --glass-border: rgba(255, 215, 0, 0.2);
+  --glass-border-hover: rgba(255, 215, 0, 0.45);
+  --text-light: #f7f9fa;
+  --text-gold: #ffebc2;
+  --text-muted: #b3999c;
+  --shadow-glow: 0 0 20px rgba(255, 215, 0, 0.15);
+  --shadow-glow-hover: 0 0 35px rgba(255, 215, 0, 0.35);
+  --transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
 @layer base {
   body {
     margin: 0;
     font-family: 'Outfit', sans-serif;
-    background-color: #FFFDF6; /* Devotional cream background */
-    color: #451010; /* Dark maroon for standard text */
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-light);
+    min-height: 100vh;
     overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Cinzel', serif;
+    letter-spacing: 0.5px;
   }
 }
 
-/* Temple style triangle/scallop borders */
-.temple-border {
-  background-image: repeating-linear-gradient(45deg, #D4AF37, #D4AF37 10px, transparent 10px, transparent 20px);
+/* Glassmorphism System */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.65);
+  transition: var(--transition);
 }
 
-/* Gold glowing card effect */
-.glow-gold {
-  box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.glass-panel:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow: 0 10px 40px rgba(255, 215, 0, 0.18), 0 0 25px rgba(255, 106, 0, 0.12);
 }
 
-.glow-gold:hover {
-  box-shadow: 0 10px 25px -2px rgba(212, 175, 55, 0.35);
+.glass-panel-subtle {
+  background: rgba(43, 3, 8, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 215, 0, 0.15);
+  border-radius: 12px;
+  transition: var(--transition);
+}
+
+/* Gradient Text Utilities */
+.text-gold-gradient {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-orange-gradient {
+  background: var(--orange-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Glow Text Animation */
+.glow-text {
+  animation: glow 3s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% {
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.4), 0 0 25px rgba(255, 106, 0, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 22px rgba(255, 215, 0, 0.75), 0 0 40px rgba(255, 106, 0, 0.45);
+  }
+}
+
+/* Float Animation */
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+
+/* Buttons */
+.btn-gold {
+  background: var(--gold-gradient);
+  color: #1a0003;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.35);
+  transition: var(--transition);
+}
+
+.btn-gold:hover {
   transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 215, 0, 0.55), 0 0 15px rgba(255, 255, 255, 0.4);
 }
 
-/* Styled scrollbar for marigold theme */
+.btn-gold:active {
+  transform: translateY(1px);
+}
+
+.btn-outline-gold {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-gold);
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 10px;
+  transition: var(--transition);
+}
+
+.btn-outline-gold:hover {
+  background: var(--glass-bg);
+  border-color: var(--accent-gold);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.25);
+}
+
+/* Glass Form Inputs */
+.input-glass {
+  background: var(--glass-bg-dark);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: var(--text-light);
+  transition: var(--transition);
+}
+
+.input-glass:focus {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+  outline: none;
+}
+
+.input-glass::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #FFFDF6;
+  background: var(--secondary-maroon);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #6B1F1F;
+  background: var(--primary-maroon);
+  border: 1px solid rgba(255, 215, 0, 0.3);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #451010;
+  background: var(--accent-orange);
 }
 
-/* Custom PDF container overrides to ensure clean rendering */
-.pdf-watermark-container {
-  position: relative;
-  overflow: hidden;
+/* Slow Spin Animation for Mandalas */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 50s linear infinite;
+}
+
+/* Card Glow Effect */
+.glow-gold {
+  box-shadow: var(--shadow-glow);
+  transition: var(--transition);
+}
+
+.glow-gold:hover {
+  box-shadow: var(--shadow-glow-hover);
+  transform: translateY(-3px);
+}
+
+/* Status Badge Styles */
+.badge-gold {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  color: var(--accent-gold);
+}
+
+.badge-orange {
+  background: rgba(255, 106, 0, 0.15);
+  border: 1px solid rgba(255, 106, 0, 0.4);
+  color: #ffb74d;
+}
+
+.badge-green {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.badge-red {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+/* Modal Overlay Animation */
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

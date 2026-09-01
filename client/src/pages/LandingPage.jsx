@@ -3,106 +3,193 @@ import { useNavigate } from 'react-router-dom';
 import DiyaDecoration from '../components/DiyaDecoration';
 import MapLocationLink from '../components/MapLocationLink';
 import Footer from '../components/Footer';
+import { Sparkles, Leaf, Award, ShieldCheck, ShoppingBag, ArrowRight } from 'lucide-react';
 
 const LandingPage = () => {
   const navigate = useNavigate();
 
-  // Mock idol preview list for premium gallery representation
   const previews = [
-    { name: 'Clay Bal Ganesha', size: '1/2 ft to 1.5 ft', desc: 'Eco-friendly pure mud models without chemicals, perfect for home pooja.', tag: 'Popular' },
-    { name: 'Traditional Ganesha', size: '1 ft to 2.5 ft', desc: 'Decorated with natural colors, featuring traditional ornaments and posture.', tag: 'Traditional' },
-    { name: 'Royal Durbar Ganesha', size: '2 ft to 3 ft', desc: 'Grand design with an elegant background throne arch and vibrant styling.', tag: 'Premium' }
+    { 
+      name: 'Clay Bal Ganesha', 
+      size: '1/2 ft to 1.5 ft', 
+      desc: 'Eco-friendly pure mud models without toxic paints, ideal for home and family pooja.', 
+      tag: 'Most Popular',
+      priceHint: 'From ₹450'
+    },
+    { 
+      name: 'Traditional Ganesha', 
+      size: '1.5 ft to 2.5 ft', 
+      desc: 'Adorned with organic natural colors, featuring classical ornaments and blessing posture.', 
+      tag: 'Heritage',
+      priceHint: 'From ₹1,800'
+    },
+    { 
+      name: 'Royal Durbar Ganesha', 
+      size: '2 ft to 3 ft', 
+      desc: 'Grand majestically sculpted idol with an elegant backdrop throne arch and vibrant crown.', 
+      tag: 'Grand Royal',
+      priceHint: 'From ₹6,500'
+    }
+  ];
+
+  const features = [
+    {
+      icon: Leaf,
+      title: '100% Pure Natural Clay',
+      desc: 'Dissolves easily in water without harming mother nature or aquatic life.'
+    },
+    {
+      icon: Award,
+      title: 'Master Sculptor Artistry',
+      desc: 'Every idol is handcrafted with divine precision and decades of devotional craftsmanship.'
+    },
+    {
+      icon: ShoppingBag,
+      title: 'Wholesale & Retail Tiers',
+      desc: 'Special bulk purchase rates for community Mandalis, temples, and retailers.'
+    },
+    {
+      icon: ShieldCheck,
+      title: 'Instant Digital Bill & SMS',
+      desc: 'Transparent order tracking, PDF bill generation, and automated status SMS.'
+    }
   ];
 
   return (
-    <div className="min-h-screen flex flex-col justify-between relative bg-devotional-cream text-devotional-maroon">
-      {/* Top Temple Arch Ornament */}
-      <div className="w-full bg-devotional-maroon h-3 relative z-10 border-b border-devotional-gold">
-        <div className="absolute inset-x-0 bottom-0 h-1 bg-repeat-x opacity-40" style={{
-          backgroundImage: 'radial-gradient(circle, #D4AF37 2px, transparent 2px)',
-          backgroundSize: '10px 4px'
-        }}></div>
-      </div>
-
-      <main className="relative z-10 flex-grow max-w-6xl mx-auto px-6 py-12 flex flex-col items-center justify-center text-center">
-        {/* Title Group with Diya */}
-        <div className="flex items-center justify-center gap-4 mb-3">
-          <DiyaDecoration className="w-12 h-12" />
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-wider bg-gradient-to-r from-devotional-maroon via-[#a52a2a] to-devotional-maroonDark bg-clip-text text-transparent drop-shadow-sm">
-            G.Kamal Ganesha Works
-          </h1>
-          <DiyaDecoration className="w-12 h-12 transform scale-x-[-1]" />
+    <div className="min-h-screen flex flex-col justify-between relative text-[#f7f9fa]">
+      
+      <main className="relative z-10 flex-grow max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col items-center justify-center text-center">
+        
+        {/* Divine Subtitle Badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#ffd700]/10 border border-[#ffd700]/30 text-[#ffd700] text-xs font-bold uppercase tracking-widest mb-6 animate-fadeIn">
+          <Sparkles size={14} className="text-[#ff6a00]" />
+          <span>Divine Eco-Friendly Clay Idols • Bangalore</span>
+          <Sparkles size={14} className="text-[#ff6a00]" />
         </div>
 
-        <p className="text-devotional-gold font-bold tracking-widest text-xs md:text-sm uppercase mb-8">
-          ✦ Premium Divine Idol Manufacturer in Bangalore ✦
+        {/* Hero Title Group */}
+        <div className="flex items-center justify-center gap-3 sm:gap-6 mb-4">
+          <DiyaDecoration className="w-10 h-10 sm:w-14 sm:h-14 animate-float" />
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-cinzel font-extrabold tracking-wider text-gold-gradient drop-shadow-2xl glow-text">
+            G.Kamal Ganesha Works
+          </h1>
+          <DiyaDecoration className="w-10 h-10 sm:w-14 sm:h-14 transform scale-x-[-1] animate-float" />
+        </div>
+
+        <p className="text-[#ffebc2] text-xs sm:text-base max-w-2xl mx-auto font-medium tracking-wide mb-10 leading-relaxed">
+          Celebrating decades of spiritual tradition in Bangalore. Handcrafting divine, 100% natural clay Ganesha idols from 1/4 feet to 3 feet with pure devotion.
         </p>
 
-        {/* Hero Section Card */}
-        <div className="bg-white/80 backdrop-blur-sm border border-devotional-gold/30 rounded-2xl p-8 md:p-12 max-w-3xl shadow-xl glow-gold mb-12 relative overflow-hidden">
-          <div className="absolute -top-12 -left-12 w-24 h-24 rounded-full bg-devotional-marigold/10 blur-xl"></div>
-          <div className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full bg-devotional-gold/10 blur-xl"></div>
+        {/* Main Hero Action Card */}
+        <div className="glass-panel p-8 sm:p-12 max-w-3xl w-full text-center relative overflow-hidden mb-16 border-2 border-[#ffd700]/30 shadow-2xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#ff6a00]/15 rounded-bl-full pointer-events-none blur-2xl"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#ffd700]/10 rounded-tr-full pointer-events-none blur-2xl"></div>
 
-          <h2 className="text-xl md:text-2xl font-bold mb-4 border-b border-devotional-gold/20 pb-2">
-            Bring Home The Divine Blessings
+          <h2 className="font-cinzel text-xl sm:text-3xl font-extrabold text-[#ffd700] mb-4">
+            Bring Home The Auspicious Blessings
           </h2>
-          <p className="text-sm md:text-base text-gray-700 leading-relaxed mb-6">
-            Welcome to G.Kamal Ganesha Works! Celebrating decades of traditional craftsmanship in Bangalore, we design premium, eco-friendly clay Ganesha idols. Every idol is hand-sculpted by master artisans using organic clay, offering pure, natural elegance ranging from 1/4 feet up to 3 feet in size.
+          
+          <p className="text-sm sm:text-base text-[#ffebc2] leading-relaxed mb-8 max-w-xl mx-auto opacity-90">
+            Explore our handcrafted catalog, view transparent retail & wholesale pricing, configure advance payments, and receive automated digital invoices with SMS confirmation.
           </p>
 
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-8">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
             <button
               onClick={() => navigate('/login/customer')}
-              className="w-full sm:w-auto bg-gradient-to-r from-devotional-orange to-red-600 text-white font-bold px-8 py-3.5 rounded-xl hover:from-devotional-marigold hover:to-devotional-orange transition-all duration-300 shadow-lg hover:shadow-orange-300/40 text-center tracking-wide"
+              className="w-full sm:w-auto btn-gold px-8 py-4 text-sm flex items-center justify-center gap-2 shadow-xl hover:scale-105 transition-transform"
             >
-              Customer Portal
+              <span>Enter Customer Portal</span>
+              <ArrowRight size={16} />
             </button>
             
             <button
               onClick={() => navigate('/login/admin')}
-              className="w-full sm:w-auto bg-gradient-to-r from-devotional-maroon to-devotional-maroonDark border border-devotional-gold/30 text-devotional-cream font-bold px-8 py-3.5 rounded-xl hover:bg-devotional-maroonDark/90 transition-all duration-300 shadow-lg text-center tracking-wide"
+              className="w-full sm:w-auto btn-outline-gold px-8 py-4 text-sm flex items-center justify-center gap-2 hover:scale-105 transition-transform"
             >
-              Admin Portal
+              <span>Admin Management</span>
             </button>
             
             <MapLocationLink className="w-full sm:w-auto" />
           </div>
         </div>
 
-        {/* Preview Gallery Section */}
-        <div className="w-full mt-4">
-          <h3 className="text-lg md:text-xl font-bold mb-6 flex items-center justify-center gap-2">
-            <span className="text-devotional-gold">✦</span> Preview Glimpse <span className="text-devotional-gold">✦</span>
-          </h3>
+        {/* 4 Feature Cards */}
+        <div className="w-full mb-16">
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="h-[1px] w-12 bg-[#ffd700]/30"></div>
+            <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-gradient tracking-wider uppercase">
+              Why Choose G.Kamal Idols
+            </h3>
+            <div className="h-[1px] w-12 bg-[#ffd700]/30"></div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+            {features.map((feat, idx) => {
+              const Icon = feat.icon;
+              return (
+                <div 
+                  key={idx} 
+                  className="glass-panel p-6 border border-[#ffd700]/20 hover:border-[#ffd700]/60 transition-all duration-300 group hover:-translate-y-1.5"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ffd700]/20 to-[#ff6a00]/20 border border-[#ffd700]/30 flex items-center justify-center mb-4 text-[#ffd700] group-hover:scale-110 transition-transform">
+                    <Icon size={24} />
+                  </div>
+                  <h4 className="font-cinzel font-bold text-base text-[#ffd700] mb-2">
+                    {feat.title}
+                  </h4>
+                  <p className="text-xs text-[#b3999c] leading-relaxed">
+                    {feat.desc}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Idol Gallery Glimpse */}
+        <div className="w-full mb-12">
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="h-[1px] w-12 bg-[#ffd700]/30"></div>
+            <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-gradient tracking-wider uppercase">
+              ✦ Exclusive Craft Collection ✦
+            </h3>
+            <div className="h-[1px] w-12 bg-[#ffd700]/30"></div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {previews.map((item, idx) => (
-              <div key={idx} className="bg-white/70 border border-devotional-gold/20 rounded-xl p-6 text-left hover:border-devotional-gold transition-all duration-300 shadow-md flex flex-col justify-between">
+              <div 
+                key={idx} 
+                className="glass-panel p-6 text-left border border-[#ffd700]/20 hover:border-[#ffd700]/60 transition-all duration-300 flex flex-col justify-between group hover:-translate-y-2"
+              >
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs bg-devotional-maroon/10 text-devotional-maroon px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded-full badge-orange">
                       {item.tag}
                     </span>
-                    <span className="text-xs text-devotional-gold font-semibold">{item.size}</span>
+                    <span className="text-xs text-[#ffd700] font-semibold">{item.size}</span>
                   </div>
-                  <h4 className="font-bold text-base mb-2 text-devotional-maroonDark">{item.name}</h4>
-                  <p className="text-xs text-gray-600 leading-relaxed">{item.desc}</p>
+                  
+                  <h4 className="font-cinzel font-bold text-lg text-gold-gradient mb-2 group-hover:text-white transition-colors">
+                    {item.name}
+                  </h4>
+                  
+                  <p className="text-xs text-[#b3999c] leading-relaxed mb-4">
+                    {item.desc}
+                  </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
-                  <span className="text-xs text-devotional-orange font-bold">100% Eco-friendly</span>
+
+                <div className="mt-4 pt-4 border-t border-[#ffd700]/15 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#ffd700]">{item.priceHint}</span>
+                  <span className="text-[11px] text-[#ff6a00] font-semibold flex items-center gap-1">
+                    <Leaf size={12} /> 100% Eco Clay
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Hidden Admin Access Trigger */}
-        <button
-          onClick={() => navigate('/login/admin')}
-          className="mt-8 text-[10px] text-devotional-gold/10 hover:text-devotional-gold/50 transition-colors duration-300"
-          title="Admin Access"
-        >
-          ✦ Admin Login
-        </button>
       </main>
 
       <Footer />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import ChakraBackground from './components/ChakraBackground';
+import ParallaxBg from './components/ParallaxBg';
+import Navbar from './components/Navbar';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -24,12 +25,15 @@ const AdminRoute = ({ children }) => {
 function App() {
   return (
     <Router>
-      <div className="relative min-h-screen">
-        {/* Animated rotating background chakra displayed on every single page */}
-        <ChakraBackground />
+      <div className="relative min-h-screen flex flex-col justify-between">
+        {/* Animated parallax background with gold mandalas & diyas */}
+        <ParallaxBg />
         
+        {/* Global luxury glass navbar */}
+        <Navbar />
+
         {/* Router switches */}
-        <div className="relative z-10">
+        <div className="relative z-10 flex-grow">
           <Routes>
             {/* Public Welcome Front Page */}
             <Route path="/" element={<LandingPage />} />
