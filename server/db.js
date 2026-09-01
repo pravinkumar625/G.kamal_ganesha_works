@@ -15,12 +15,21 @@ let memoryCache = null;
 let mongoClient = null;
 let mongoDb = null;
 
+function getMongoUri() {
+  return process.env.MONGODB_URI || 
+         process.env.MONGODB_URL || 
+         process.env.STORAGE_URL || 
+         process.env.DATABASE_URL || 
+         null;
+}
+
 async function getMongoDb() {
   if (mongoDb) return mongoDb;
-  if (!process.env.MONGODB_URI || !MongoClient) return null;
+  const uri = getMongoUri();
+  if (!uri || !MongoClient) return null;
 
   try {
-    mongoClient = new MongoClient(process.env.MONGODB_URI);
+    mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000 });
     await mongoClient.connect();
     mongoDb = mongoClient.db();
     console.log('Connected to MongoDB Atlas successfully!');
