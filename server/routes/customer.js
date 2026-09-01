@@ -39,8 +39,8 @@ router.get('/profile', (req, res) => {
   });
 });
 
-// Update customer profile details
-router.post('/profile', (req, res) => {
+// Handler to update customer profile details (supports both POST and PUT)
+const handleProfileUpdate = (req, res) => {
   const { name, email, address } = req.body;
 
   if (!name || !name.trim()) {
@@ -83,18 +83,24 @@ router.post('/profile', (req, res) => {
     });
   }
 
+  const userPayload = {
+    id: updated.id || req.user.id,
+    name: updated.name,
+    mobile: updated.mobile || req.user.mobile,
+    email: updated.email,
+    address: updated.address,
+    customerType: updated.customerType || req.user.customerType || 'retail'
+  };
+
   res.json({
     message: 'Profile updated successfully',
-    user: {
-      id: updated.id || req.user.id,
-      name: updated.name,
-      mobile: updated.mobile || req.user.mobile,
-      email: updated.email,
-      address: updated.address,
-      customerType: updated.customerType || req.user.customerType || 'retail'
-    }
+    user: userPayload,
+    ...userPayload
   });
-});
+};
+
+router.post('/profile', handleProfileUpdate);
+router.put('/profile', handleProfileUpdate);
 
 // Get catalog for customer
 router.get('/catalog', (req, res) => {

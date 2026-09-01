@@ -181,7 +181,7 @@ const CustomerDashboard = () => {
 
     try {
       const response = await fetch('/api/customer/profile', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
@@ -189,11 +189,25 @@ const CustomerDashboard = () => {
         body: JSON.stringify(profileForm)
       });
 
-      const updatedUser = await response.json();
+      let updatedUser;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        updatedUser = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || 'Server communication error');
+      }
+
       if (!response.ok) throw new Error(updatedUser.error || 'Failed to update profile');
 
-      setUser(updatedUser);
-      localStorage.setItem('customerUser', JSON.stringify(updatedUser));
+      const userData = updatedUser.user || updatedUser;
+      setUser(prev => ({ ...prev, ...userData }));
+      setProfileForm({
+        name: userData.name || '',
+        email: userData.email || '',
+        address: userData.address || ''
+      });
+      localStorage.setItem('customerUser', JSON.stringify(userData));
       
       setSuccess('Profile details confirmed successfully!');
       setIsEditingProfile(false);
