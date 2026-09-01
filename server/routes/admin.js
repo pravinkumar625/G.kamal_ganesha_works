@@ -3,7 +3,6 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const requireRole = require('../middleware/requireRole');
-const { sendBillSMS } = require('../services/smsService');
 
 // All routes in this router require the 'admin' role
 router.use(requireRole('admin'));
@@ -90,9 +89,7 @@ router.post('/orders', (req, res) => {
     grandTotal: finalGrandTotal,
     advancePayment: finalAdvance,
     balanceDue: finalBalance,
-    status: status || 'pending_review',
-    billSentVia: 'none',
-    billSentLogs: []
+    status: status || 'pending_review'
   };
 
   const newOrder = db.insert('orders', orderData);
@@ -139,8 +136,8 @@ router.delete('/orders/:id', (req, res) => {
   res.json({ message: 'Order deleted successfully' });
 });
 
-// Approve & Finalize Order (generates original bill, sends SMS notification)
-router.post('/orders/:id/approve', async (req, res) => {
+// Approve & Finalize Order (generates and stores original bill)
+router.post('/orders/:id/approve', (req, res) => {
   const orderId = req.params.id;
   const { pdfBase64 } = req.body;
 
@@ -152,60 +149,15 @@ router.post('/orders/:id/approve', async (req, res) => {
   const updates = {
     status: 'finalized',
     rejectionReason: '',
-    billSentLogs: order.billSentLogs || []
+    finalizedAt: new Date().toISOString()
   };
 
   if (pdfBase64) {
     updates.originalPdfBase64 = pdfBase64;
   }
 
-  const logs = [...updates.billSentLogs];
-  const mobileNumber = order.customerDetails?.mobile;
-
-  if (mobileNumber) {
-    try {
-      const host = req.get('host');
-      const protocol = req.protocol;
-      const billUrl = `${protocol}://${host}/api/public/bills/${order.id}/download`;
-
-      const result = await sendBillSMS({
-        mobileNumber,
-        customerName: order.customerDetails.name || 'Valued Customer',
-        orderId: order.id,
-        billUrl: billUrl,
-        grandTotal: order.grandTotal
-      });
-
-      logs.push({
-        channel: 'sms',
-        timestamp: new Date().toISOString(),
-        status: 'success',
-        details: result.simulated ? 'Simulated Send (Logged to logs/sms.log)' : `Message SID: ${result.messageSid}`
-      });
-      updates.billSentVia = 'sms';
-    } catch (err) {
-      logs.push({
-        channel: 'sms',
-        timestamp: new Date().toISOString(),
-        status: 'failed',
-        error: err.message
-      });
-      updates.billSentVia = 'none';
-    }
-  } else {
-    logs.push({
-      channel: 'sms',
-      timestamp: new Date().toISOString(),
-      status: 'failed',
-      error: 'No mobile number registered for customer'
-    });
-    updates.billSentVia = 'none';
-  }
-
-  updates.billSentLogs = logs;
-
   const finalizedOrder = db.update('orders', orderId, updates);
-  res.json({ message: 'Order finalized and SMS sent', order: finalizedOrder });
+  res.json({ message: 'Order approved and finalized successfully', order: finalizedOrder });
 });
 
 // Reject Order
@@ -481,129 +433,6 @@ router.post('/accounts', (req, res) => {
       role: 'admin'
     }
   });
-});
-
-// --- SMS DISPATCH LOGS & SMS GATEWAY SETTINGS ---
-
-// Get SMS Dispatch Logs
-router.get('/sms-logs', (req, res) => {
-  const fs = require('fs');
-  const path = require('path');
-  const logFile = path.join(__dirname, '..', 'logs', 'sms.log');
-
-  const logs = [];
-
-  // Parse text log file if exists
-  if (fs.existsSync(logFile)) {
-    try {
-      const content = fs.readFileSync(logFile, 'utf-8');
-      const blocks = content.split('=============================================');
-      blocks.forEach(block => {
-        const lines = block.trim().split('\n');
-        if (lines.length >= 5) {
-          const entry = {};
-          lines.forEach(line => {
-            if (line.startsWith('Timestamp:')) entry.timestamp = line.replace('Timestamp:', '').trim();
-            else if (line.startsWith('To:')) entry.to = line.replace('To:', '').trim();
-            else if (line.startsWith('Customer:')) entry.customer = line.replace('Customer:', '').trim();
-            else if (line.startsWith('Order ID:')) entry.orderId = line.replace('Order ID:', '').trim();
-            else if (line.startsWith('Grand Total:')) entry.grandTotal = line.replace('Grand Total:', '').trim();
-            else if (line.startsWith('Status:')) entry.status = line.replace('Status:', '').trim();
-            else if (line.startsWith('Message:')) entry.message = line.replace('Message:', '').trim();
-          });
-          if (entry.timestamp || entry.to) {
-            logs.push(entry);
-          }
-        }
-      });
-    } catch (err) {
-      console.error('Error reading sms.log:', err);
-    }
-  }
-
-  // Also combine with any order billSentLogs
-  const orders = db.getCollection('orders');
-  orders.forEach(o => {
-    if (o.billSentLogs && Array.isArray(o.billSentLogs)) {
-      o.billSentLogs.forEach(l => {
-        const alreadyExists = logs.some(entry => entry.orderId === o.id && entry.timestamp === l.timestamp);
-        if (!alreadyExists) {
-          logs.push({
-            timestamp: l.timestamp,
-            to: o.customerDetails?.mobile || 'N/A',
-            customer: o.customerDetails?.name || 'Customer',
-            orderId: o.id,
-            grandTotal: `₹${o.grandTotal}`,
-            status: l.status === 'success' ? (l.details || 'Dispatched') : `Failed: ${l.error || 'Unknown'}`,
-            message: `Thank you for purchasing from G.Kamal Ganesha Works, ${o.customerDetails?.name}! Order #${o.id} bill download link dispatched.`
-          });
-        }
-      });
-    }
-  });
-
-  // Sort latest first
-  logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  res.json(logs);
-});
-
-// Get SMS Twilio settings
-router.get('/sms-settings', (req, res) => {
-  const settings = db.getSettings();
-  
-  const smsConfig = {
-    accountSid: process.env.TWILIO_ACCOUNT_SID || settings.sms?.accountSid || settings.whatsapp?.accountSid || '',
-    hasToken: !!(process.env.TWILIO_AUTH_TOKEN || settings.sms?.authToken || settings.whatsapp?.authToken),
-    fromNumber: process.env.TWILIO_PHONE_NUMBER || settings.sms?.fromNumber || settings.whatsapp?.fromNumber || '',
-    isConfigured: !!(process.env.TWILIO_ACCOUNT_SID || settings.sms?.accountSid) && !!(process.env.TWILIO_AUTH_TOKEN || settings.sms?.authToken)
-  };
-
-  res.json(smsConfig);
-});
-
-// Save SMS Twilio settings
-router.post('/sms-settings', (req, res) => {
-  const { accountSid, authToken, fromNumber } = req.body;
-  const currentSettings = db.getSettings();
-
-  const smsUpdates = {
-    accountSid: accountSid ? accountSid.trim() : '',
-    fromNumber: fromNumber ? fromNumber.trim() : ''
-  };
-
-  if (authToken) {
-    smsUpdates.authToken = authToken.trim();
-  } else if (currentSettings.sms?.authToken) {
-    smsUpdates.authToken = currentSettings.sms.authToken;
-  }
-
-  db.saveSettings({ sms: smsUpdates });
-  res.json({ message: 'SMS Gateway settings saved successfully' });
-});
-
-// Send Test SMS
-router.post('/sms/test', async (req, res) => {
-  const { mobileNumber } = req.body;
-  if (!mobileNumber) {
-    return res.status(400).json({ error: 'Mobile number is required for test SMS' });
-  }
-
-  try {
-    const result = await sendBillSMS({
-      mobileNumber: mobileNumber.trim(),
-      customerName: 'Valued Customer (Test)',
-      orderId: 'TEST-SMS',
-      billUrl: `${req.protocol}://${req.get('host')}/api/public/bills/TEST-SMS/download`,
-      grandTotal: 1000
-    });
-
-    res.json({
-      message: result.simulated ? 'Test SMS simulated and logged successfully.' : 'Live Test SMS sent successfully via Twilio!',
-      result
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to send test SMS' });
-  }
 });
 
 module.exports = router;

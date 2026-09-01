@@ -184,9 +184,6 @@ const CustomerDashboard = () => {
       const updatedUser = { ...user, ...data.user };
       setUser(updatedUser);
       localStorage.setItem('customerUser', JSON.stringify(updatedUser));
-      if (updatedUser.mobile) {
-        localStorage.setItem(`customerProfile_${updatedUser.mobile}`, JSON.stringify(updatedUser));
-      }
       
       setSuccess('Profile details confirmed successfully!');
       setIsEditingProfile(false);
