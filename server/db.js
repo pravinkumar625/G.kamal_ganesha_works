@@ -1,6 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
+// Ensure DNS resolution succeeds for MongoDB Atlas SRV connection strings
+try {
+  const dns = require('dns');
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) { }
+
 let MongoClient = null;
 try {
   MongoClient = require('mongodb').MongoClient;
@@ -29,9 +35,9 @@ async function getMongoDb() {
   if (!uri || !MongoClient) return null;
 
   try {
-    mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000 });
+    mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 6000, connectTimeoutMS: 6000 });
     await mongoClient.connect();
-    mongoDb = mongoClient.db();
+    mongoDb = mongoClient.db('ganesha_works');
     console.log('Connected to MongoDB Atlas successfully!');
     return mongoDb;
   } catch (err) {
