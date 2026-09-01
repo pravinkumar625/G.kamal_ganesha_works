@@ -66,10 +66,10 @@ function initDB() {
     } else if (fs.existsSync(BUNDLED_DB_FILE)) {
       const bundledContent = fs.readFileSync(BUNDLED_DB_FILE, 'utf-8');
       memoryCache = JSON.parse(bundledContent);
-      try { fs.writeFileSync(DB_FILE, bundledContent, 'utf-8'); } catch (e) {}
+      try { fs.writeFileSync(DB_FILE, bundledContent, 'utf-8'); } catch (e) { }
     } else {
       memoryCache = JSON.parse(JSON.stringify(defaultData));
-      try { fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2), 'utf-8'); } catch (e) {}
+      try { fs.writeFileSync(DB_FILE, JSON.stringify(defaultData, null, 2), 'utf-8'); } catch (e) { }
     }
   } catch (err) {
     console.error('initDB error loading file, using defaults/in-memory:', err);
@@ -106,17 +106,17 @@ function writeData(data) {
     }
     const jsonStr = JSON.stringify(data, null, 2);
     fs.writeFileSync(DB_FILE, jsonStr, 'utf-8');
-    
+
     // Also update bundled file if local
     if (!process.env.VERCEL && DB_FILE !== BUNDLED_DB_FILE) {
       try {
         fs.writeFileSync(BUNDLED_DB_FILE, jsonStr, 'utf-8');
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Save to MongoDB Atlas if connected
     if (process.env.MONGODB_URI) {
-      syncToMongo(data).catch(() => {});
+      syncToMongo(data).catch(() => { });
     }
 
     // Save to Vercel KV if configured
@@ -188,8 +188,8 @@ let storageLoadingPromise = null;
 function loadFromStorage() {
   if (storageLoadingPromise) return storageLoadingPromise;
 
-  if (process.env.MONGODB_URI) {
-    console.log('Detected MONGODB_URI. Connecting to MongoDB Atlas...');
+  if (getMongoUri()) {
+    console.log('Detected MongoDB Storage URI. Connecting to MongoDB Atlas...');
     storageLoadingPromise = loadFromMongo();
   } else if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     console.log('Detected Vercel KV. Initiating DB restore from KV...');
@@ -263,7 +263,7 @@ const db = {
     if (collectionName === 'orders') {
       const currentYear = new Date().getFullYear().toString();
       const yearOrders = items.filter(o => o.id && o.id.startsWith(`${currentYear}-`));
-      
+
       let maxSeq = 0;
       yearOrders.forEach(o => {
         const parts = o.id.split('-');
