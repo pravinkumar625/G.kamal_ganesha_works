@@ -111,8 +111,9 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
-    if (!token) {
-      localStorage.clear();
+    if (!token || token === 'undefined' || token === 'null') {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
       navigate('/login/admin');
       return;
     }
@@ -121,14 +122,19 @@ const AdminDashboard = () => {
 
     // Auto-refresh order queue & dashboard data every 3 seconds for instant real-time sync
     const interval = setInterval(() => {
-      fetchAllData();
+      const currentToken = localStorage.getItem('adminToken');
+      if (currentToken && currentToken !== 'undefined' && currentToken !== 'null') {
+        fetchAllData();
+      }
     }, 3000);
 
     return () => clearInterval(interval);
   }, [activeTab, navigate]);
 
   const fetchAllData = async () => {
-    const headers = { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` };
+    const token = localStorage.getItem('adminToken');
+    if (!token || token === 'undefined' || token === 'null') return;
+    const headers = { 'Authorization': `Bearer ${token}` };
     try {
       const [ordersRes, catalogRes, customersRes, activityRes] = await Promise.all([
         fetch('/api/admin/orders', { headers }),
