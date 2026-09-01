@@ -37,23 +37,24 @@ router.post('/login/customer', (req, res) => {
       role: 'customer'
     });
   } else {
-    // If logging in again, keep the entered details for this session and normalize mobile
-    const updates = { customerType: selectedType, mobile: normalizedMobile };
-    if (cleanEmail && customer.email !== cleanEmail) {
+    // If logging in again, preserve existing customerType unless changed, and normalize mobile
+    const updates = { mobile: normalizedMobile };
+    if (customerType && (customerType === 'wholesale' || customerType === 'retail')) {
+      updates.customerType = customerType;
+      customer.customerType = customerType;
+    }
+    if (cleanEmail && (!customer.email || cleanEmail !== customer.email)) {
       updates.email = cleanEmail;
+      customer.email = cleanEmail;
     }
     if (customer.deleted) {
       updates.deleted = false;
       updates.deletedAt = null;
-    }
-    db.update('users', customer.id, updates);
-    customer.customerType = selectedType;
-    customer.mobile = normalizedMobile;
-    if (updates.email) customer.email = cleanEmail;
-    if (customer.deleted) {
       customer.deleted = false;
       customer.deletedAt = null;
     }
+    db.update('users', customer.id, updates);
+    customer.mobile = normalizedMobile;
   }
 
   // Create login log entry

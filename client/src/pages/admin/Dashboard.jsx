@@ -123,13 +123,25 @@ const AdminDashboard = () => {
     // Auto-refresh order queue & dashboard data every 3 seconds for instant real-time sync
     const interval = setInterval(() => {
       const currentToken = localStorage.getItem('adminToken');
-      if (currentToken && currentToken !== 'undefined' && currentToken !== 'null') {
+      // Do not trigger background polling if the admin is actively filling a form or modal
+      if (
+        currentToken && 
+        currentToken !== 'undefined' && 
+        currentToken !== 'null' &&
+        !isCreateOrderOpen &&
+        !editingOrder &&
+        !editingAmounts &&
+        !editingCatalogId &&
+        !approvingOrder &&
+        !rejectingOrder &&
+        !viewingBillOrder
+      ) {
         fetchAllData();
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [activeTab, navigate]);
+  }, [activeTab, isCreateOrderOpen, editingOrder, editingAmounts, editingCatalogId, approvingOrder, rejectingOrder, viewingBillOrder, navigate]);
 
   const fetchAllData = async () => {
     const token = localStorage.getItem('adminToken');
@@ -2007,7 +2019,7 @@ const AdminDashboard = () => {
                       required
                       placeholder="e.g. Ramesh Kumar"
                       value={newOrderForm.name}
-                      onChange={(e) => setNewOrderForm({ ...newOrderForm, name: e.target.value })}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, name: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:border-devotional-orange"
                     />
                   </div>
@@ -2018,7 +2030,7 @@ const AdminDashboard = () => {
                       required
                       placeholder="e.g. 9876543210"
                       value={newOrderForm.mobile}
-                      onChange={(e) => setNewOrderForm({ ...newOrderForm, mobile: e.target.value })}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, mobile: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:border-devotional-orange"
                     />
                   </div>
@@ -2028,7 +2040,7 @@ const AdminDashboard = () => {
                       type="email"
                       placeholder="e.g. ramesh@gmail.com"
                       value={newOrderForm.email}
-                      onChange={(e) => setNewOrderForm({ ...newOrderForm, email: e.target.value })}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:border-devotional-orange"
                     />
                   </div>
@@ -2036,7 +2048,7 @@ const AdminDashboard = () => {
                     <label className="block text-[9px] font-bold text-gray-600 uppercase mb-1">Pricing Tier</label>
                     <select
                       value={newOrderForm.customerType}
-                      onChange={(e) => setNewOrderForm({ ...newOrderForm, customerType: e.target.value })}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, customerType: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:border-devotional-orange bg-white font-semibold"
                     >
                       <option value="retail">🛍 Retail Customer</option>
@@ -2049,7 +2061,7 @@ const AdminDashboard = () => {
                       type="text"
                       placeholder="e.g. #45, 2nd Cross, Malleshwaram, Bangalore"
                       value={newOrderForm.address}
-                      onChange={(e) => setNewOrderForm({ ...newOrderForm, address: e.target.value })}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, address: e.target.value }))}
                       className="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:border-devotional-orange"
                     />
                   </div>

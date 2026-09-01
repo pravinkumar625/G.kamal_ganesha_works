@@ -78,11 +78,14 @@ const CustomerDashboard = () => {
 
     // Live auto-sync interval for customer dashboard
     const interval = setInterval(() => {
-      fetchOrders();
+      const token = localStorage.getItem('customerToken');
+      if (token && token !== 'undefined' && token !== 'null' && !isPreviewOpen && !isEditingProfile) {
+        fetchOrders();
+      }
     }, 3500);
 
     return () => clearInterval(interval);
-  }, [navigate]);
+  }, [isPreviewOpen, isEditingProfile, navigate]);
 
   // Fetch logged in customer profile from backend
   const fetchProfile = async () => {
