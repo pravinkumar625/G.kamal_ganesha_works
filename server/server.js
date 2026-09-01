@@ -48,7 +48,12 @@ app.use('/api/admin', adminRoutes);
 app.get('/api/public/bills/:id/download', (req, res) => {
   try {
     const orderId = req.params.id;
-    const order = db.findOne('orders', o => o.id === orderId);
+    const cleanId = decodeURIComponent(String(orderId)).replace(/^#/, '').trim().toLowerCase();
+    const order = db.findOne('orders', o => {
+      if (!o || !o.id) return false;
+      const oId = String(o.id).replace(/^#/, '').trim().toLowerCase();
+      return oId === cleanId;
+    });
 
     if (!order || order.status !== 'finalized' || !order.originalPdfBase64) {
       return res.status(404).send('<h1>Bill Not Found</h1><p>The requested bill was not found or is not approved yet.</p>');

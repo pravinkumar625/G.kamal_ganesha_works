@@ -30,6 +30,17 @@
       "updatedAt": "2026-09-01T05:26:31.642Z",
       "deleted": true,
       "deletedAt": "2026-09-01T05:26:31.642Z"
+    },
+    {
+      "id": "mti9g02kwbui1",
+      "createdAt": "2026-09-01T06:02:32.157Z",
+      "name": "PRAVIN Kumar",
+      "mobile": "9739142445",
+      "email": "PRAVIN@GMAIL.COM",
+      "address": "Bangalore",
+      "customerType": "retail",
+      "role": "customer",
+      "updatedAt": "2026-09-01T06:02:48.565Z"
     }
   ],
   "ganesha_items": [
@@ -92,7 +103,45 @@
       ]
     }
   ],
-  "orders": [],
+  "orders": [
+    {
+      "id": "2026-001",
+      "createdAt": "2026-09-01T06:03:00.033Z",
+      "customerId": "mti9g02kwbui1",
+      "customerDetails": {
+        "name": "PRAVIN Kumar",
+        "mobile": "9739142445",
+        "email": "PRAVIN@GMAIL.COM",
+        "address": "Bangalore",
+        "customerType": "retail"
+      },
+      "items": [
+        {
+          "itemId": "1",
+          "name": "Clay Bal Ganesha",
+          "size": "1/2 ft",
+          "rate": 450,
+          "quantity": 3,
+          "lineTotal": 1350
+        },
+        {
+          "itemId": "mtgubg8qkg9zx",
+          "name": "SUPER",
+          "size": "16",
+          "rate": 450,
+          "quantity": 1,
+          "lineTotal": 450
+        }
+      ],
+      "grandTotal": 1800,
+      "advancePayment": 0,
+      "balanceDue": 1800,
+      "status": "pending_review",
+      "billSentVia": "none",
+      "billSentLogs": [],
+      "updatedAt": "2026-09-01T06:22:20.033Z"
+    }
+  ],
   "login_logs": [
     {
       "id": "mti649v9j0n8r",
@@ -232,6 +281,16 @@
       "email": "tester@gmail.com",
       "mobile": "9999988888",
       "timestamp": "2026-08-31T04:00:42.774Z",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+    },
+    {
+      "id": "mti9g03dvq48g",
+      "createdAt": "2026-09-01T06:02:32.185Z",
+      "customerId": "mti9g02kwbui1",
+      "name": "New Customer",
+      "email": "PRAVIN@GMAIL.COM",
+      "mobile": "9739142445",
+      "timestamp": "2026-09-01T06:02:32.185Z",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
     }
   ],

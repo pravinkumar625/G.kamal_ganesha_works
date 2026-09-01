@@ -7,18 +7,42 @@ const requireRole = require('../middleware/requireRole');
 // All routes in this router require the 'admin' role
 router.use(requireRole('admin'));
 
+// Helper to find order flexibly by ID
+function findOrder(orderId) {
+  if (!orderId) return null;
+  const cleanId = decodeURIComponent(String(orderId)).replace(/^#/, '').trim().toLowerCase();
+  return db.findOne('orders', o => {
+    if (!o || !o.id) return false;
+    const cleanOId = String(o.id).replace(/^#/, '').trim().toLowerCase();
+    return cleanOId === cleanId;
+  });
+}
+
 // --- ORDERS ENDPOINTS ---
 
 // Get all orders (optimized for lightweight payload by omitting heavy base64 strings during auto-sync)
 router.get('/orders', (req, res) => {
   const orders = db.getCollection('orders');
+  const users = db.getCollection('users');
+
   // Sort orders by creation date descending
   const sorted = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   
   const sanitized = sorted.map(o => {
     const { originalPdfBase64, ...rest } = o;
+    // Enrich customer name if updated in user profile
+    const user = users.find(u => 
+      u.id === o.customerId || 
+      (u.mobile && o.customerDetails?.mobile && u.mobile.replace(/\D/g, '').slice(-10) === o.customerDetails.mobile.replace(/\D/g, '').slice(-10))
+    );
+    const enrichedCustomer = {
+      ...o.customerDetails,
+      name: (user && user.name && user.name !== 'New Customer' && user.name !== 'Customer') ? user.name : (o.customerDetails?.name || 'Customer')
+    };
+
     return {
       ...rest,
+      customerDetails: enrichedCustomer,
       hasOriginalBill: !!(o.status === 'finalized' || originalPdfBase64)
     };
   });
@@ -28,7 +52,7 @@ router.get('/orders', (req, res) => {
 
 // Get a single order with full details
 router.get('/orders/:id', (req, res) => {
-  const order = db.findOne('orders', o => o.id === req.params.id);
+  const order = findOrder(req.params.id);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -98,13 +122,12 @@ router.post('/orders', (req, res) => {
 
 // Edit an order's contents / status
 router.put('/orders/:id', (req, res) => {
-  const orderId = req.params.id;
-  const { customerDetails, items, grandTotal, advancePayment, balanceDue, status, rejectionReason } = req.body;
-
-  const order = db.findOne('orders', o => o.id === orderId);
+  const order = findOrder(req.params.id);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
+
+  const { customerDetails, items, grandTotal, advancePayment, balanceDue, status, rejectionReason } = req.body;
 
   const updates = {};
   if (customerDetails) updates.customerDetails = customerDetails;
@@ -122,14 +145,17 @@ router.put('/orders/:id', (req, res) => {
   }
   if (rejectionReason !== undefined) updates.rejectionReason = rejectionReason;
 
-  const updatedOrder = db.update('orders', orderId, updates);
+  const updatedOrder = db.update('orders', order.id, updates);
   res.json({ message: 'Order updated successfully', order: updatedOrder });
 });
 
 // Delete an order
 router.delete('/orders/:id', (req, res) => {
-  const orderId = req.params.id;
-  const success = db.delete('orders', orderId);
+  const order = findOrder(req.params.id);
+  if (!order) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+  const success = db.delete('orders', order.id);
   if (!success) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -138,13 +164,12 @@ router.delete('/orders/:id', (req, res) => {
 
 // Approve & Finalize Order (generates and stores original bill)
 router.post('/orders/:id/approve', (req, res) => {
-  const orderId = req.params.id;
-  const { pdfBase64 } = req.body;
-
-  const order = db.findOne('orders', o => o.id === orderId);
+  const order = findOrder(req.params.id);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
+
+  const { pdfBase64 } = req.body;
 
   const updates = {
     status: 'finalized',
@@ -156,19 +181,18 @@ router.post('/orders/:id/approve', (req, res) => {
     updates.originalPdfBase64 = pdfBase64;
   }
 
-  const finalizedOrder = db.update('orders', orderId, updates);
+  const finalizedOrder = db.update('orders', order.id, updates);
   res.json({ message: 'Order approved and finalized successfully', order: finalizedOrder });
 });
 
 // Reject Order
 router.post('/orders/:id/reject', (req, res) => {
-  const orderId = req.params.id;
-  const { reason } = req.body;
-
-  const order = db.findOne('orders', o => o.id === orderId);
+  const order = findOrder(req.params.id);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
+
+  const { reason } = req.body;
 
   const updates = {
     status: 'rejected',
@@ -176,14 +200,13 @@ router.post('/orders/:id/reject', (req, res) => {
     rejectedAt: new Date().toISOString()
   };
 
-  const updatedOrder = db.update('orders', orderId, updates);
+  const updatedOrder = db.update('orders', order.id, updates);
   res.json({ message: 'Order rejected successfully', order: updatedOrder });
 });
 
 // Reset Order to Pending Review
 router.post('/orders/:id/reset', (req, res) => {
-  const orderId = req.params.id;
-  const order = db.findOne('orders', o => o.id === orderId);
+  const order = findOrder(req.params.id);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -193,7 +216,7 @@ router.post('/orders/:id/reset', (req, res) => {
     rejectionReason: ''
   };
 
-  const updatedOrder = db.update('orders', orderId, updates);
+  const updatedOrder = db.update('orders', order.id, updates);
   res.json({ message: 'Order reset to Pending Review successfully', order: updatedOrder });
 });
 

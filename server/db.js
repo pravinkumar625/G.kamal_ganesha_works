@@ -106,7 +106,7 @@ function readData() {
 }
 
 // Write database to disk safely (and sync to MongoDB / Vercel KV if available)
-function writeData(data) {
+async function writeData(data) {
   memoryCache = data;
   try {
     const dir = path.dirname(DB_FILE);
@@ -123,14 +123,15 @@ function writeData(data) {
       } catch (e) { }
     }
 
-    // Save to MongoDB Atlas if connected
-    if (process.env.MONGODB_URI) {
-      syncToMongo(data).catch(() => { });
+    // Save to MongoDB Atlas if connected (AWAIT sync to prevent serverless container from freezing before write)
+    const uri = getMongoUri();
+    if (uri) {
+      await syncToMongo(data);
     }
 
     // Save to Vercel KV if configured
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      fetch(process.env.KV_REST_API_URL, {
+      await fetch(process.env.KV_REST_API_URL, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.KV_REST_API_TOKEN}`,
@@ -303,7 +304,11 @@ const db = {
 
   update(collectionName, id, updates) {
     const items = this.getCollection(collectionName);
-    const index = items.findIndex(item => item.id === id);
+    if (!id) return null;
+    const cleanId = decodeURIComponent(String(id)).replace(/^#/, '').trim().toLowerCase();
+    const index = items.findIndex(item => 
+      item.id === id || (item.id && String(item.id).replace(/^#/, '').trim().toLowerCase() === cleanId)
+    );
     if (index === -1) return null;
 
     items[index] = { ...items[index], ...updates, updatedAt: new Date().toISOString() };
@@ -313,7 +318,11 @@ const db = {
 
   delete(collectionName, id) {
     const items = this.getCollection(collectionName);
-    const index = items.findIndex(item => item.id === id);
+    if (!id) return false;
+    const cleanId = decodeURIComponent(String(id)).replace(/^#/, '').trim().toLowerCase();
+    const index = items.findIndex(item => 
+      item.id === id || (item.id && String(item.id).replace(/^#/, '').trim().toLowerCase() === cleanId)
+    );
     if (index === -1) return false;
 
     items.splice(index, 1);

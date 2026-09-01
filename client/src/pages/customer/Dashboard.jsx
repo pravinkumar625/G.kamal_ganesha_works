@@ -87,6 +87,11 @@ const CustomerDashboard = () => {
     return () => clearInterval(interval);
   }, [isPreviewOpen, isEditingProfile, navigate]);
 
+  // Helper to update state only when content actually changes (prevents visual flickering/fluctuation)
+  const setIfChanged = (setter, newVal) => {
+    setter(prev => JSON.stringify(prev) === JSON.stringify(newVal) ? prev : newVal);
+  };
+
   // Fetch logged in customer profile from backend
   const fetchProfile = async () => {
     try {
@@ -97,7 +102,7 @@ const CustomerDashboard = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setUser(prev => ({ ...prev, ...data }));
+        setUser(prev => JSON.stringify(prev) === JSON.stringify({ ...prev, ...data }) ? prev : { ...prev, ...data });
         setProfileForm({
           name: (data.name && data.name !== 'New Customer' ? data.name : '') || '',
           email: data.email || '',
@@ -123,7 +128,7 @@ const CustomerDashboard = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setCatalog(data);
+        setIfChanged(setCatalog, data);
         // Initialize default price types to retail for all items
         const defaultTypes = {};
         data.forEach(item => {
@@ -146,7 +151,7 @@ const CustomerDashboard = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        setOrders(data);
+        setIfChanged(setOrders, data);
       }
     } catch (err) {
       console.error('Error fetching orders:', err);

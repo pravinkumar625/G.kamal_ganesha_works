@@ -189,7 +189,12 @@ router.get('/orders/:id/original-bill', (req, res) => {
   const customerId = req.user.id;
   const userMobile = req.user.mobile ? req.user.mobile.toString().replace(/\D/g, '').slice(-10) : '';
 
-  const order = db.findOne('orders', o => o.id === orderId);
+  const cleanId = decodeURIComponent(String(orderId)).replace(/^#/, '').trim().toLowerCase();
+  const order = db.findOne('orders', o => {
+    if (!o || !o.id) return false;
+    const oId = String(o.id).replace(/^#/, '').trim().toLowerCase();
+    return oId === cleanId;
+  });
 
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });

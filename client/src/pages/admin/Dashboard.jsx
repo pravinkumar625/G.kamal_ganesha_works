@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../../components/Footer';
 import DiyaDecoration from '../../components/DiyaDecoration';
@@ -109,39 +109,24 @@ const AdminDashboard = () => {
 
   const navigate = useNavigate();
 
+  // Ref to track if any interactive modal or form is currently open
+  const isInteractingRef = useRef(false);
   useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token || token === 'undefined' || token === 'null') {
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
-      navigate('/login/admin');
-      return;
-    }
+    isInteractingRef.current = !!(
+      isCreateOrderOpen ||
+      editingOrder ||
+      editingAmounts ||
+      editingCatalogId ||
+      approvingOrder ||
+      rejectingOrder ||
+      viewingBillOrder
+    );
+  }, [isCreateOrderOpen, editingOrder, editingAmounts, editingCatalogId, approvingOrder, rejectingOrder, viewingBillOrder]);
 
-    fetchAllData();
-
-    // Auto-refresh order queue & dashboard data every 3 seconds for instant real-time sync
-    const interval = setInterval(() => {
-      const currentToken = localStorage.getItem('adminToken');
-      // Do not trigger background polling if the admin is actively filling a form or modal
-      if (
-        currentToken && 
-        currentToken !== 'undefined' && 
-        currentToken !== 'null' &&
-        !isCreateOrderOpen &&
-        !editingOrder &&
-        !editingAmounts &&
-        !editingCatalogId &&
-        !approvingOrder &&
-        !rejectingOrder &&
-        !viewingBillOrder
-      ) {
-        fetchAllData();
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [activeTab, isCreateOrderOpen, editingOrder, editingAmounts, editingCatalogId, approvingOrder, rejectingOrder, viewingBillOrder, navigate]);
+  // Helper to update state only when content actually changes (prevents visual flickering/fluctuation)
+  const setIfChanged = (setter, newVal) => {
+    setter(prev => JSON.stringify(prev) === JSON.stringify(newVal) ? prev : newVal);
+  };
 
   const fetchAllData = async () => {
     const token = localStorage.getItem('adminToken');
@@ -154,14 +139,48 @@ const AdminDashboard = () => {
         fetch('/api/admin/customers', { headers }),
         fetch('/api/admin/login-activity', { headers })
       ]);
-      if (ordersRes.ok) setOrders(await ordersRes.json());
-      if (catalogRes.ok) setCatalog(await catalogRes.json());
-      if (customersRes.ok) setCustomers(await customersRes.json());
-      if (activityRes.ok) setLoginActivity(await activityRes.json());
+      if (ordersRes.ok) {
+        const newOrders = await ordersRes.json();
+        setIfChanged(setOrders, newOrders);
+      }
+      if (catalogRes.ok) {
+        const newCatalog = await catalogRes.json();
+        setIfChanged(setCatalog, newCatalog);
+      }
+      if (customersRes.ok) {
+        const newCustomers = await customersRes.json();
+        setIfChanged(setCustomers, newCustomers);
+      }
+      if (activityRes.ok) {
+        const newActivity = await activityRes.json();
+        setIfChanged(setLoginActivity, newActivity);
+      }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
     }
   };
+
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken');
+    if (!token || token === 'undefined' || token === 'null') {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
+      navigate('/login/admin');
+      return;
+    }
+
+    fetchAllData();
+
+    // Auto-refresh order queue & dashboard data smoothly without thrashing
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem('adminToken');
+      if (currentToken && currentToken !== 'undefined' && currentToken !== 'null' && !isInteractingRef.current) {
+        fetchAllData();
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [navigate]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -730,7 +749,10 @@ const AdminDashboard = () => {
   // --- ORDER APPROVAL & SENDING ---
   const startApproveOrder = (order) => {
     setModalError('');
-    setApprovingOrder(order);
+    const cleanId = String(order?.id || '').replace(/^#/, '').trim();
+    // Get latest state of this order from orders array
+    const fresh = orders.find(o => String(o.id).replace(/^#/, '').trim() === cleanId) || order;
+    setApprovingOrder({ ...fresh, id: cleanId });
   };
 
   const handleConfirmApproval = async () => {
@@ -739,6 +761,8 @@ const AdminDashboard = () => {
     setSuccess('');
     setModalError('');
     setLoading(true);
+
+    const cleanId = String(approvingOrder.id || '').replace(/^#/, '').trim();
 
     try {
       let pdfBase64 = '';
@@ -749,7 +773,7 @@ const AdminDashboard = () => {
         console.warn('PDF generation in browser encountered warning, proceeding with approval:', pdfErr);
       }
 
-      const response = await fetch(`/api/admin/orders/${approvingOrder.id}/approve`, {
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(cleanId)}/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -762,8 +786,8 @@ const AdminDashboard = () => {
       if (!response.ok) throw new Error(data.error || 'Failed to approve order');
 
       // Optimistic state update
-      setOrders(prev => prev.map(o => o.id === approvingOrder.id ? { ...o, status: 'finalized', rejectionReason: '' } : o));
-      setSuccess(`Order #${approvingOrder.id} has been accepted & approved successfully!`);
+      setOrders(prev => prev.map(o => String(o.id).replace(/^#/, '').trim() === cleanId ? { ...o, status: 'finalized', rejectionReason: '' } : o));
+      setSuccess(`Order #${cleanId} has been accepted & approved successfully!`);
       setApprovingOrder(null);
       fetchAllData();
     } catch (err) {
@@ -785,8 +809,10 @@ const AdminDashboard = () => {
   // --- ORDER REJECTION ---
   const startRejectOrder = (order) => {
     setRejectModalError('');
-    setRejectingOrder(order);
-    setRejectionReason(order.rejectionReason || 'Cannot fulfill order at this time / Out of stock');
+    const cleanId = String(order?.id || '').replace(/^#/, '').trim();
+    const fresh = orders.find(o => String(o.id).replace(/^#/, '').trim() === cleanId) || order;
+    setRejectingOrder({ ...fresh, id: cleanId });
+    setRejectionReason(fresh.rejectionReason || 'Cannot fulfill order at this time / Out of stock');
   };
 
   const handleConfirmReject = async () => {
@@ -796,9 +822,11 @@ const AdminDashboard = () => {
     setRejectModalError('');
     setLoading(true);
 
+    const cleanId = String(rejectingOrder.id || '').replace(/^#/, '').trim();
+
     try {
       const reasonToSet = (rejectionReason && rejectionReason.trim()) || 'Cannot fulfill order at this time / Out of stock';
-      const res = await fetch(`/api/admin/orders/${rejectingOrder.id}/reject`, {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(cleanId)}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -810,8 +838,8 @@ const AdminDashboard = () => {
       if (!res.ok) throw new Error(data.error || 'Failed to reject order');
 
       // Optimistic state update
-      setOrders(prev => prev.map(o => o.id === rejectingOrder.id ? { ...o, status: 'rejected', rejectionReason: reasonToSet } : o));
-      setSuccess(`Order #${rejectingOrder.id} marked as Rejected.`);
+      setOrders(prev => prev.map(o => String(o.id).replace(/^#/, '').trim() === cleanId ? { ...o, status: 'rejected', rejectionReason: reasonToSet } : o));
+      setSuccess(`Order #${cleanId} marked as Rejected.`);
       setRejectingOrder(null);
       fetchAllData();
     } catch (err) {
@@ -828,8 +856,9 @@ const AdminDashboard = () => {
     setError('');
     setSuccess('');
     setLoading(true);
+    const cleanId = String(order?.id || '').replace(/^#/, '').trim();
     try {
-      const res = await fetch(`/api/admin/orders/${order.id}/reset`, {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(cleanId)}/reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -839,8 +868,8 @@ const AdminDashboard = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reset order');
 
-      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'pending_review', rejectionReason: '' } : o));
-      setSuccess(`Order #${order.id} status reset to Pending Review.`);
+      setOrders(prev => prev.map(o => String(o.id).replace(/^#/, '').trim() === cleanId ? { ...o, status: 'pending_review', rejectionReason: '' } : o));
+      setSuccess(`Order #${cleanId} status reset to Pending Review.`);
       fetchAllData();
     } catch (err) {
       console.error('Error resetting order:', err);
@@ -1683,17 +1712,27 @@ const AdminDashboard = () => {
             {/* TAB: REVENUE & DUES (ONLY TOTAL REVENUE & STILL DUE AMOUNT + CUSTOMER DUES TABLE) */}
             {activeTab === 'revenue' && (() => {
               const allOrders = orders || [];
-              const activeCustIds = new Set(customers.filter(c => !c.deleted).map(c => c.id));
-              const finalizedOrders = allOrders.filter(o => o.status === 'finalized' && activeCustIds.has(o.customerId));
+              const activeCustList = customers.filter(c => !c.deleted);
+              const activeCustIds = new Set(activeCustList.map(c => c.id));
+              const activeCustMobiles = new Set(activeCustList.map(c => c.mobile ? c.mobile.replace(/\D/g, '').slice(-10) : '').filter(Boolean));
+
+              const isOrderForActiveCust = (o) => {
+                if (o.customerId && activeCustIds.has(o.customerId)) return true;
+                const ordMobile = o.customerDetails?.mobile ? o.customerDetails.mobile.replace(/\D/g, '').slice(-10) : '';
+                if (ordMobile && activeCustMobiles.has(ordMobile)) return true;
+                return false;
+              };
+
+              const finalizedOrders = allOrders.filter(o => o.status === 'finalized' && isOrderForActiveCust(o));
               
               // Total Revenue: sum of grandTotal across finalized orders for active customers
               const totalRevenue = finalizedOrders.reduce((s, o) => s + (o.grandTotal || 0), 0);
               
-              // Total Still Due Amount across all customers/orders
-              const totalStillDue = customers.filter(c => !c.deleted).reduce((s, c) => s + (c.balanceDue || 0), 0);
-              const customersWithDue = customers.filter(c => !c.deleted && c.balanceDue > 0);
+              // Total Still Due Amount across all active customers
+              const totalStillDue = activeCustList.reduce((s, c) => s + (c.balanceDue || 0), 0);
+              const customersWithDue = activeCustList.filter(c => (c.balanceDue || 0) > 0);
 
-              const revenueDisplayedCustomers = activeCustomers.filter(c => {
+              const revenueDisplayedCustomers = activeCustList.filter(c => {
                 if (!searchQuery.trim()) return true;
                 const q = searchQuery.toLowerCase().trim();
                 return (c.name || '').toLowerCase().includes(q) || (c.mobile || '').includes(q) || (c.address || '').toLowerCase().includes(q);
