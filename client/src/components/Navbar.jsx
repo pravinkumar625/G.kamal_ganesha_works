@@ -95,7 +95,7 @@ const Navbar = () => {
               </button>
               <button
                 onClick={handleCustomerLogout}
-                className="flex items-center gap-1 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-all"
+                className="flex items-center gap-1 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-all font-bold"
                 title="Customer Logout"
               >
                 <LogOut size={13} />
@@ -132,7 +132,7 @@ const Navbar = () => {
               </button>
               <button
                 onClick={handleAdminLogout}
-                className="flex items-center gap-1 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-all"
+                className="flex items-center gap-1 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-all font-bold"
                 title="Admin Logout"
               >
                 <LogOut size={13} />
@@ -144,8 +144,8 @@ const Navbar = () => {
               onClick={() => navigate('/login/admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
                 isActive('/login/admin') 
-                  ? 'text-[#ffd700] border border-[#ffd700]/40' 
-                  : 'text-[#b3999c] hover:text-[#ffebc2]'
+                  ? 'text-[#ffd700] border border-[#ffd700]/40 font-bold' 
+                  : 'text-[#cbd5e1] hover:text-[#ffd700]'
               }`}
             >
               <ShieldAlert size={13} />

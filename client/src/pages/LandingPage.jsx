@@ -89,7 +89,7 @@ const LandingPage = () => {
             Bring Home The Auspicious Blessings
           </h2>
           
-          <p className="text-sm sm:text-base text-[#ffebc2] leading-relaxed mb-8 max-w-xl mx-auto opacity-90">
+          <p className="text-sm sm:text-base text-[#ffebc2] leading-relaxed mb-8 max-w-xl mx-auto opacity-95 font-medium">
             Explore our handcrafted catalog, view transparent retail & wholesale pricing, configure advance payments, and receive automated digital invoices with SMS confirmation.
           </p>
 
@@ -137,7 +137,7 @@ const LandingPage = () => {
                   <h4 className="font-cinzel font-bold text-base text-[#ffd700] mb-2">
                     {feat.title}
                   </h4>
-                  <p className="text-xs text-[#b3999c] leading-relaxed">
+                  <p className="text-xs text-[#cbd5e1] leading-relaxed font-medium">
                     {feat.desc}
                   </p>
                 </div>
@@ -174,7 +174,7 @@ const LandingPage = () => {
                     {item.name}
                   </h4>
                   
-                  <p className="text-xs text-[#b3999c] leading-relaxed mb-4">
+                  <p className="text-xs text-[#cbd5e1] leading-relaxed mb-4 font-medium">
                     {item.desc}
                   </p>
                 </div>

@@ -391,8 +391,8 @@ const CustomerDashboard = () => {
                   {user?.customerType === 'wholesale' ? 'Wholesale Tier' : 'Retail Tier'}
                 </span>
               </div>
-              <p className="text-xs text-[#b3999c] mt-1 flex items-center gap-2">
-                <span>📞 {user?.mobile}</span>
+              <p className="text-xs text-[#cbd5e1] mt-1 flex items-center gap-2 font-medium">
+                <span className="text-[#ffd700]">📞 {user?.mobile}</span>
                 {user?.address && <span>• 📍 {user.address}</span>}
               </p>
             </div>
@@ -437,7 +437,7 @@ const CustomerDashboard = () => {
               <User size={18} className="text-[#ff6a00]" />
               <span>Confirm Your Delivery & Billing Details</span>
             </h3>
-            <p className="text-xs text-[#b3999c] mb-5">
+            <p className="text-xs text-[#cbd5e1] mb-5 font-medium">
               Your name and address are formatted on official bills and dispatched to our workshop.
             </p>
             <form onSubmit={handleProfileSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -507,7 +507,7 @@ const CustomerDashboard = () => {
             className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
               activeTab === 'catalog'
                 ? 'border-[#ffd700] text-[#ffd700] bg-[#ffd700]/10 rounded-t-xl'
-                : 'border-transparent text-[#b3999c] hover:text-white'
+                : 'border-transparent text-[#cbd5e1] hover:text-white'
             }`}
           >
             <ShoppingBag size={16} />
@@ -519,7 +519,7 @@ const CustomerDashboard = () => {
             className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
               activeTab === 'builder'
                 ? 'border-[#ffd700] text-[#ffd700] bg-[#ffd700]/10 rounded-t-xl'
-                : 'border-transparent text-[#b3999c] hover:text-white'
+                : 'border-transparent text-[#cbd5e1] hover:text-white'
             }`}
           >
             <FileText size={16} />
@@ -531,7 +531,7 @@ const CustomerDashboard = () => {
             className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
               activeTab === 'orders'
                 ? 'border-[#ffd700] text-[#ffd700] bg-[#ffd700]/10 rounded-t-xl'
-                : 'border-transparent text-[#b3999c] hover:text-white'
+                : 'border-transparent text-[#cbd5e1] hover:text-white'
             }`}
           >
             <Download size={16} />
@@ -553,7 +553,7 @@ const CustomerDashboard = () => {
               </div>
               
               {catalog.length === 0 ? (
-                <p className="text-center text-[#b3999c] py-12">Loading catalog models...</p>
+                <p className="text-center text-[#cbd5e1] py-12 font-medium">Loading catalog models...</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {catalog.map(item => {
@@ -585,7 +585,7 @@ const CustomerDashboard = () => {
                             <>
                               <button
                                 onClick={(e) => {
-                                  e.stopPropagation();
+                                   e.stopPropagation();
                                   const prevIdx = (currentPhotoIdx - 1 + itemImages.length) % itemImages.length;
                                   setActivePhotoIndexes(prev => ({ ...prev, [item.id]: prevIdx }));
                                 }}
@@ -628,7 +628,7 @@ const CustomerDashboard = () => {
                           
                           <div className="mt-4 pt-3 border-t border-[#ffd700]/15 flex justify-between items-end">
                             <div>
-                              <p className="text-[10px] text-[#b3999c] uppercase font-bold tracking-wider">{rateLabel}</p>
+                              <p className="text-[10px] text-[#ffebc2] uppercase font-bold tracking-wider">{rateLabel}</p>
                               <p className="text-xl font-cinzel font-extrabold text-[#ffd700]">₹{activeRate?.toLocaleString()}</p>
                             </div>
                             <button
@@ -663,7 +663,7 @@ const CustomerDashboard = () => {
               
               <div className="space-y-4">
                 {catalog.length === 0 ? (
-                  <p className="text-center text-[#b3999c] py-6 text-sm">No items in the catalog.</p>
+                  <p className="text-center text-[#cbd5e1] py-6 text-sm font-medium">No items in the catalog.</p>
                 ) : (
                   catalog.map(item => {
                     const qty = orderQuantities[item.id] || 0;
@@ -730,7 +730,7 @@ const CustomerDashboard = () => {
               </h3>
 
               {summary.items.length === 0 ? (
-                <div className="text-center py-8 text-[#b3999c] text-xs leading-relaxed">
+                <div className="text-center py-8 text-[#cbd5e1] text-xs leading-relaxed font-medium">
                   No items selected yet. Adjust quantities on the left to build your bill.
                 </div>
               ) : (
@@ -739,7 +739,7 @@ const CustomerDashboard = () => {
                     <div key={item.itemId} className="flex justify-between items-center text-xs border-b border-[#ffd700]/10 pb-2">
                       <div>
                         <span className="font-bold text-[#ffd700]">{item.name}</span>
-                        <span className="text-[10px] text-[#b3999c] block">({item.size} × {item.quantity})</span>
+                        <span className="text-[10px] text-[#cbd5e1] block">({item.size} × {item.quantity})</span>
                       </div>
                       <span className="font-bold text-[#ffebc2]">₹{item.lineTotal?.toLocaleString()}</span>
                     </div>
@@ -811,7 +811,7 @@ const CustomerDashboard = () => {
                 <tbody className="divide-y divide-[#ffd700]/10">
                   {orders.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="py-12 text-center text-[#b3999c]">
+                      <td colSpan="7" className="py-12 text-center text-[#cbd5e1] font-medium">
                         You haven't placed any orders yet. Switch to the <strong>Create Bill</strong> tab to get started.
                       </td>
                     </tr>
@@ -824,7 +824,7 @@ const CustomerDashboard = () => {
                         <tr key={order.id} className="hover:bg-white/5 transition-colors">
                           <td className="py-4 px-4 font-mono font-bold text-[#ffd700]">#{order.id}</td>
                           <td className="py-4 px-4 text-[#ffebc2]">{dateStr}</td>
-                          <td className="py-4 px-4 text-[#b3999c] max-w-xs truncate" title={summaryText}>
+                          <td className="py-4 px-4 text-[#cbd5e1] font-medium max-w-xs truncate" title={summaryText}>
                             {summaryText}
                           </td>
                           <td className="py-4 px-4 text-right font-bold text-[#ffd700]">₹{order.grandTotal?.toLocaleString()}</td>

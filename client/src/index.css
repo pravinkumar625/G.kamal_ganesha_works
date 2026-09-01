@@ -9,19 +9,19 @@
   --secondary-maroon: #2b0308;
   --accent-orange: #ff6a00;
   --accent-gold: #ffd700;
-  --bg-gradient: linear-gradient(135deg, #200104 0%, #0a0001 100%);
+  --bg-gradient: linear-gradient(135deg, #180003 0%, #080001 100%);
   --gold-gradient: linear-gradient(135deg, #ffe066 0%, #f5b041 50%, #d4af37 100%);
   --orange-gradient: linear-gradient(135deg, #ff9933 0%, #ff5500 100%);
-  --glass-bg: rgba(74, 14, 23, 0.4);
-  --glass-bg-dark: rgba(26, 0, 3, 0.65);
-  --glass-border: rgba(255, 215, 0, 0.2);
-  --glass-border-hover: rgba(255, 215, 0, 0.45);
-  --text-light: #f7f9fa;
+  --glass-bg: rgba(36, 3, 8, 0.85);
+  --glass-bg-dark: rgba(20, 0, 3, 0.8);
+  --glass-border: rgba(255, 215, 0, 0.28);
+  --glass-border-hover: rgba(255, 215, 0, 0.55);
+  --text-light: #f8fafc;
   --text-gold: #ffebc2;
-  --text-muted: #b3999c;
+  --text-muted: #cbd5e1;
   --shadow-glow: 0 0 20px rgba(255, 215, 0, 0.15);
   --shadow-glow-hover: 0 0 35px rgba(255, 215, 0, 0.35);
-  --transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 @layer base {
@@ -41,28 +41,30 @@
   }
 }
 
-/* Glassmorphism System */
+/* Glassmorphism System with High Contrast & Readability */
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.65);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.75);
+  color: var(--text-light);
   transition: var(--transition);
 }
 
 .glass-panel:hover {
   border-color: var(--glass-border-hover);
-  box-shadow: 0 10px 40px rgba(255, 215, 0, 0.18), 0 0 25px rgba(255, 106, 0, 0.12);
+  box-shadow: 0 10px 40px rgba(255, 215, 0, 0.2), 0 0 25px rgba(255, 106, 0, 0.15);
 }
 
 .glass-panel-subtle {
-  background: rgba(43, 3, 8, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 215, 0, 0.15);
+  background: rgba(30, 2, 7, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 215, 0, 0.2);
   border-radius: 12px;
+  color: var(--text-light);
   transition: var(--transition);
 }
 
@@ -110,7 +112,7 @@
 /* Buttons */
 .btn-gold {
   background: var(--gold-gradient);
-  color: #1a0003;
+  color: #150002;
   font-family: 'Cinzel', serif;
   font-weight: 700;
   text-transform: uppercase;
@@ -123,7 +125,7 @@
 
 .btn-gold:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(255, 215, 0, 0.55), 0 0 15px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 25px rgba(255, 215, 0, 0.6), 0 0 15px rgba(255, 255, 255, 0.5);
 }
 
 .btn-gold:active {
@@ -131,7 +133,7 @@
 }
 
 .btn-outline-gold {
-  background: transparent;
+  background: rgba(255, 215, 0, 0.05);
   border: 1px solid var(--glass-border);
   color: var(--text-gold);
   font-family: 'Cinzel', serif;
@@ -147,7 +149,7 @@
   border-color: var(--accent-gold);
   color: #ffffff;
   transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.25);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
 }
 
 /* Glass Form Inputs */
@@ -155,19 +157,19 @@
   background: var(--glass-bg-dark);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
-  color: var(--text-light);
+  color: #ffffff !important;
   transition: var(--transition);
 }
 
 .input-glass:focus {
   border-color: var(--accent-gold);
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.35);
   outline: none;
 }
 
 .input-glass::placeholder {
-  color: var(--text-muted);
-  opacity: 0.7;
+  color: #94a3b8;
+  opacity: 0.8;
 }
 
 /* Custom Scrollbar */
@@ -217,26 +219,26 @@
 
 /* Status Badge Styles */
 .badge-gold {
-  background: rgba(255, 215, 0, 0.15);
-  border: 1px solid rgba(255, 215, 0, 0.4);
-  color: var(--accent-gold);
+  background: rgba(255, 215, 0, 0.18);
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  color: #ffd700;
 }
 
 .badge-orange {
-  background: rgba(255, 106, 0, 0.15);
-  border: 1px solid rgba(255, 106, 0, 0.4);
+  background: rgba(255, 106, 0, 0.18);
+  border: 1px solid rgba(255, 106, 0, 0.5);
   color: #ffb74d;
 }
 
 .badge-green {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.5);
   color: #34d399;
 }
 
 .badge-red {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.5);
   color: #f87171;
 }
 

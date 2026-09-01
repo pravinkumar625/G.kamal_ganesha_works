@@ -77,7 +77,7 @@ const CustomerLoginPage = () => {
             <p className="text-xs text-[#ffd700] font-bold tracking-widest uppercase mt-1">
               G.Kamal Ganesha Works
             </p>
-            <p className="text-xs text-[#b3999c] mt-2">
+            <p className="text-xs text-[#ffebc2] mt-2 font-medium">
               Enter your mobile number to view transparent pricing & place orders.
             </p>
           </div>
@@ -104,26 +104,26 @@ const CustomerLoginPage = () => {
                   onClick={() => setCustomerType('retail')}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center select-none ${
                     customerType === 'retail'
-                      ? 'bg-[#ffd700]/15 border-[#ffd700] shadow-[0_0_15px_rgba(255,215,0,0.25)] scale-[1.02]'
-                      : 'bg-white/5 border-[#ffd700]/20 hover:border-[#ffd700]/40 opacity-70'
+                      ? 'bg-[#ffd700]/20 border-[#ffd700] shadow-[0_0_15px_rgba(255,215,0,0.35)] scale-[1.02]'
+                      : 'bg-white/5 border-[#ffd700]/20 hover:border-[#ffd700]/40 opacity-80'
                   }`}
                 >
-                  <ShoppingBag size={20} className={customerType === 'retail' ? 'text-[#ffd700]' : 'text-gray-400'} />
+                  <ShoppingBag size={20} className={customerType === 'retail' ? 'text-[#ffd700]' : 'text-[#cbd5e1]'} />
                   <span className="font-cinzel font-bold text-xs mt-1 text-[#ffd700]">Retailer</span>
-                  <span className="text-[10px] text-[#b3999c] mt-0.5">Single / Few Idols</span>
+                  <span className="text-[10px] text-[#cbd5e1] mt-0.5 font-medium">Single / Few Idols</span>
                 </div>
 
                 <div 
                   onClick={() => setCustomerType('wholesale')}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col items-center text-center select-none ${
                     customerType === 'wholesale'
-                      ? 'bg-[#ffd700]/15 border-[#ffd700] shadow-[0_0_15px_rgba(255,215,0,0.25)] scale-[1.02]'
-                      : 'bg-white/5 border-[#ffd700]/20 hover:border-[#ffd700]/40 opacity-70'
+                      ? 'bg-[#ffd700]/20 border-[#ffd700] shadow-[0_0_15px_rgba(255,215,0,0.35)] scale-[1.02]'
+                      : 'bg-white/5 border-[#ffd700]/20 hover:border-[#ffd700]/40 opacity-80'
                   }`}
                 >
-                  <Store size={20} className={customerType === 'wholesale' ? 'text-[#ffd700]' : 'text-gray-400'} />
+                  <Store size={20} className={customerType === 'wholesale' ? 'text-[#ffd700]' : 'text-[#cbd5e1]'} />
                   <span className="font-cinzel font-bold text-xs mt-1 text-[#ffd700]">Wholesaler</span>
-                  <span className="text-[10px] text-[#b3999c] mt-0.5">Bulk Purchase</span>
+                  <span className="text-[10px] text-[#cbd5e1] mt-0.5 font-medium">Bulk Purchase</span>
                 </div>
               </div>
             </div>
@@ -144,10 +144,10 @@ const CustomerLoginPage = () => {
                   onChange={(e) => setMobile(e.target.value)}
                   required
                   placeholder="e.g. 9739142445"
-                  className="w-full pl-10 pr-4 py-3 input-glass text-sm"
+                  className="w-full pl-10 pr-4 py-3 input-glass text-sm font-medium"
                 />
               </div>
-              <p className="text-[10px] text-[#b3999c] mt-1">If unregistered, a customer profile will be created automatically.</p>
+              <p className="text-[11px] text-[#cbd5e1] mt-1 font-medium">If unregistered, a customer profile will be created automatically.</p>
             </div>
 
             {/* Email Field */}
@@ -165,10 +165,10 @@ const CustomerLoginPage = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-10 pr-4 py-3 input-glass text-sm"
+                  className="w-full pl-10 pr-4 py-3 input-glass text-sm font-medium"
                 />
               </div>
-              <p className="text-[10px] text-[#b3999c] mt-1">Used to email your finalized invoice.</p>
+              <p className="text-[11px] text-[#cbd5e1] mt-1 font-medium">Used to email your finalized invoice.</p>
             </div>
 
             {/* Submit Button */}
@@ -192,7 +192,7 @@ const CustomerLoginPage = () => {
           <div className="mt-8 text-center border-t border-[#ffd700]/15 pt-4">
             <button
               onClick={() => navigate('/')}
-              className="text-xs text-[#ffd700] hover:text-white transition-colors flex items-center justify-center gap-1.5 mx-auto font-medium"
+              className="text-xs text-[#ffd700] hover:text-white transition-colors flex items-center justify-center gap-1.5 mx-auto font-semibold"
             >
               <ArrowLeft size={13} />
               <span>Back to Home</span>

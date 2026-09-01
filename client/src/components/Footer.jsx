@@ -44,15 +44,15 @@ const Footer = () => {
         </div>
 
         {/* Bottom Copyright & Admin Secret Trigger */}
-        <div className="border-t border-[#ffd700]/15 pt-4 flex flex-col sm:flex-row justify-between items-center text-[11px] text-[#b3999c] gap-2">
+        <div className="border-t border-[#ffd700]/15 pt-4 flex flex-col sm:flex-row justify-between items-center text-[11px] text-[#cbd5e1] gap-2 font-medium">
           <p>
             © {new Date().getFullYear()} G.Kamal Ganesha Works. All traditional craftsmanship rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <span className="text-[#ffd700]/60">Handcrafted with pure clay & devotion</span>
+            <span className="text-[#ffebc2]">Handcrafted with pure clay & devotion</span>
             <button
               onClick={() => navigate('/login/admin')}
-              className="text-[#ffd700]/30 hover:text-[#ffd700] transition-colors"
+              className="text-[#ffd700]/40 hover:text-[#ffd700] transition-colors font-bold text-sm"
               title="Admin Console"
             >
               ✦
