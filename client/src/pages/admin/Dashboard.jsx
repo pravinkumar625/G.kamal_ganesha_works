@@ -763,8 +763,13 @@ const AdminDashboard = () => {
     setLoading(true);
 
     const cleanId = String(approvingOrder.id || '').replace(/^#/, '').trim();
+    const token = localStorage.getItem('adminToken');
 
     try {
+      if (!token || token === 'undefined' || token === 'null') {
+        throw new Error('Admin session expired. Please log in again.');
+      }
+
       let pdfBase64 = '';
       try {
         const doc = generateBillPDF(approvingOrder, 'G.kamal ganesha works', false);
@@ -773,13 +778,15 @@ const AdminDashboard = () => {
         console.warn('PDF generation in browser encountered warning, proceeding with approval:', pdfErr);
       }
 
+      const bodyPayload = (pdfBase64 && pdfBase64.length < 2000000) ? { pdfBase64 } : {};
+
       const response = await fetch(`/api/admin/orders/${encodeURIComponent(cleanId)}/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ pdfBase64 })
+        body: JSON.stringify(bodyPayload)
       });
 
       const data = await response.json();
@@ -823,14 +830,19 @@ const AdminDashboard = () => {
     setLoading(true);
 
     const cleanId = String(rejectingOrder.id || '').replace(/^#/, '').trim();
+    const token = localStorage.getItem('adminToken');
 
     try {
+      if (!token || token === 'undefined' || token === 'null') {
+        throw new Error('Admin session expired. Please log in again.');
+      }
+
       const reasonToSet = (rejectionReason && rejectionReason.trim()) || 'Cannot fulfill order at this time / Out of stock';
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(cleanId)}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ reason: reasonToSet })
       });
@@ -857,12 +869,16 @@ const AdminDashboard = () => {
     setSuccess('');
     setLoading(true);
     const cleanId = String(order?.id || '').replace(/^#/, '').trim();
+    const token = localStorage.getItem('adminToken');
     try {
+      if (!token || token === 'undefined' || token === 'null') {
+        throw new Error('Admin session expired. Please log in again.');
+      }
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(cleanId)}/reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         }
       });
       const data = await res.json();
