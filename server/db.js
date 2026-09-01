@@ -96,7 +96,7 @@ function readData() {
   return memoryCache;
 }
 
-// Write database to disk safely (and sync to Vercel KV / MongoDB if available)
+// Write database to disk safely (and sync to MongoDB / Vercel KV if available)
 function writeData(data) {
   memoryCache = data;
   try {
@@ -112,6 +112,11 @@ function writeData(data) {
       try {
         fs.writeFileSync(BUNDLED_DB_FILE, jsonStr, 'utf-8');
       } catch (e) {}
+    }
+
+    // Save to MongoDB Atlas if connected
+    if (process.env.MONGODB_URI) {
+      syncToMongo(data).catch(() => {});
     }
 
     // Save to Vercel KV if configured
@@ -135,14 +140,60 @@ function writeData(data) {
   }
 }
 
-// Asynchronously load database from Vercel KV or MongoDB if environment variables are present
-let kvLoadingPromise = null;
-function loadFromKV() {
-  if (kvLoadingPromise) return kvLoadingPromise;
+// Sync to MongoDB Atlas
+async function syncToMongo(data) {
+  try {
+    const dbInstance = await getMongoDb();
+    if (dbInstance) {
+      const col = dbInstance.collection('store');
+      await col.updateOne(
+        { _id: 'ganesha_main_db' },
+        { $set: { data, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    }
+  } catch (e) {
+    console.error('Error syncing to MongoDB Atlas:', e);
+  }
+}
 
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+// Load from MongoDB Atlas
+async function loadFromMongo() {
+  try {
+    const dbInstance = await getMongoDb();
+    if (dbInstance) {
+      const col = dbInstance.collection('store');
+      const doc = await col.findOne({ _id: 'ganesha_main_db' });
+      if (doc && doc.data && doc.data.users) {
+        memoryCache = doc.data;
+        console.log('Database loaded successfully from MongoDB Atlas!');
+        return memoryCache;
+      } else {
+        const initial = memoryCache || initDB();
+        await col.updateOne(
+          { _id: 'ganesha_main_db' },
+          { $set: { data: initial, updatedAt: new Date() } },
+          { upsert: true }
+        );
+      }
+    }
+  } catch (e) {
+    console.error('Error loading from MongoDB Atlas:', e);
+  }
+  return memoryCache || initDB();
+}
+
+// Asynchronously load database from MongoDB or Vercel KV on startup
+let storageLoadingPromise = null;
+function loadFromStorage() {
+  if (storageLoadingPromise) return storageLoadingPromise;
+
+  if (process.env.MONGODB_URI) {
+    console.log('Detected MONGODB_URI. Connecting to MongoDB Atlas...');
+    storageLoadingPromise = loadFromMongo();
+  } else if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     console.log('Detected Vercel KV. Initiating DB restore from KV...');
-    kvLoadingPromise = fetch(process.env.KV_REST_API_URL, {
+    storageLoadingPromise = fetch(process.env.KV_REST_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.KV_REST_API_TOKEN}`,
@@ -169,14 +220,14 @@ function loadFromKV() {
         return memoryCache || initDB();
       });
   } else {
-    kvLoadingPromise = Promise.resolve(memoryCache || initDB());
+    storageLoadingPromise = Promise.resolve(memoryCache || initDB());
   }
-  return kvLoadingPromise;
+  return storageLoadingPromise;
 }
 
 // Call on startup
-if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-  loadFromKV();
+if (process.env.MONGODB_URI || (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)) {
+  loadFromStorage();
 }
 
 const db = {
