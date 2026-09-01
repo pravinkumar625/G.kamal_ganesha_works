@@ -4,7 +4,7 @@ const path = require('path');
 // Ensure DNS resolution succeeds for MongoDB Atlas SRV connection strings
 try {
   const dns = require('dns');
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
 } catch (e) { }
 
 let MongoClient = null;
@@ -20,6 +20,7 @@ const DB_FILE = process.env.VERCEL ? path.join('/tmp', 'db.json') : BUNDLED_DB_F
 let memoryCache = null;
 let mongoClient = null;
 let mongoDb = null;
+let isConnectedToMongo = false;
 
 function getMongoUri() {
   return process.env.MONGODB_URI || 
@@ -30,18 +31,24 @@ function getMongoUri() {
 }
 
 async function getMongoDb() {
-  if (mongoDb) return mongoDb;
+  if (mongoDb && isConnectedToMongo) return mongoDb;
   const uri = getMongoUri();
   if (!uri || !MongoClient) return null;
 
   try {
-    mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 6000, connectTimeoutMS: 6000 });
+    mongoClient = new MongoClient(uri, { 
+      serverSelectionTimeoutMS: 8000, 
+      connectTimeoutMS: 8000,
+      maxPoolSize: 10
+    });
     await mongoClient.connect();
     mongoDb = mongoClient.db('ganesha_works');
+    isConnectedToMongo = true;
     console.log('Connected to MongoDB Atlas successfully!');
     return mongoDb;
   } catch (err) {
-    console.error('Failed to connect to MongoDB Atlas:', err);
+    isConnectedToMongo = false;
+    console.error('Failed to connect to MongoDB Atlas:', err.message || err);
     return null;
   }
 }
@@ -352,6 +359,11 @@ const db = {
     return writeData(data);
   },
 
+  isMongoConnected() {
+    return isConnectedToMongo;
+  },
+  getMongoDb,
+  syncToMongo,
   loadFromStorage,
   loadFromKV: loadFromStorage
 };

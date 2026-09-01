@@ -1,3 +1,9 @@
+// Ensure DNS resolution succeeds for MongoDB Atlas SRV connection strings
+try {
+  const dns = require('dns');
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (e) { }
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -22,22 +28,56 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Disable caching for all API endpoints and ensure KV data is loaded
+// Disable caching for all API endpoints and ensure MongoDB/KV data is loaded
 app.use('/api', async (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  // Await Vercel KV loading promise if it exists to prevent race conditions on cold start
-  if (db.loadFromKV) {
+  // Await storage loading promise if it exists to prevent race conditions on cold start
+  if (db.loadFromStorage) {
     try {
-      await db.loadFromKV();
+      await db.loadFromStorage();
     } catch (e) {
-      console.error('Failed to resolve KV load promise on request:', e);
+      console.error('Failed to resolve storage load promise on request:', e);
     }
   }
 
   next();
+});
+
+// Real-time Database Health Check & Diagnostic Status Endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    if (db.loadFromStorage) {
+      await db.loadFromStorage();
+    }
+    const isMongoConnected = db.isMongoConnected ? db.isMongoConnected() : false;
+    const users = db.getCollection('users') || [];
+    const orders = db.getCollection('orders') || [];
+    const catalog = db.getCollection('ganesha_items') || [];
+    
+    res.json({
+      status: 'ok',
+      database: isMongoConnected ? 'MongoDB Atlas (Connected)' : 'Local File / Memory Cache',
+      mongoConnected: isMongoConnected,
+      storageUriConfigured: !!(process.env.MONGODB_URI || process.env.MONGODB_URL),
+      counts: {
+        users: users.length,
+        orders: orders.length,
+        catalog: catalog.length
+      },
+      latestOrders: orders.slice(-5).map(o => ({
+        id: o.id,
+        name: o.customerDetails?.name || 'Customer',
+        status: o.status,
+        total: o.grandTotal
+      })),
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
 });
 
 // Serve API routes

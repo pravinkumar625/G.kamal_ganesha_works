@@ -103,6 +103,9 @@ const AdminDashboard = () => {
   // In-App Confirm Dialog Modal
   const [confirmDialog, setConfirmDialog] = useState(null);
 
+  // Database Connection Live Status State
+  const [dbStatus, setDbStatus] = useState({ connected: false, text: 'Checking...', count: 0 });
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -133,11 +136,12 @@ const AdminDashboard = () => {
     if (!token || token === 'undefined' || token === 'null') return;
     const headers = { 'Authorization': `Bearer ${token}` };
     try {
-      const [ordersRes, catalogRes, customersRes, activityRes] = await Promise.all([
+      const [ordersRes, catalogRes, customersRes, activityRes, healthRes] = await Promise.all([
         fetch('/api/admin/orders', { headers }),
         fetch('/api/admin/catalog', { headers }),
         fetch('/api/admin/customers', { headers }),
-        fetch('/api/admin/login-activity', { headers })
+        fetch('/api/admin/login-activity', { headers }),
+        fetch('/api/health').catch(() => null)
       ]);
       if (ordersRes.ok) {
         const newOrders = await ordersRes.json();
@@ -154,6 +158,14 @@ const AdminDashboard = () => {
       if (activityRes.ok) {
         const newActivity = await activityRes.json();
         setIfChanged(setLoginActivity, newActivity);
+      }
+      if (healthRes && healthRes.ok) {
+        const healthData = await healthRes.json();
+        setDbStatus({
+          connected: healthData.mongoConnected || false,
+          text: healthData.database || 'Connected',
+          count: healthData.counts?.orders || 0
+        });
       }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
@@ -945,16 +957,40 @@ const AdminDashboard = () => {
           <div className="flex items-center gap-4">
             <DiyaDecoration className="w-12 h-12 animate-float" />
             <div>
-              <h2 className="font-cinzel text-xl sm:text-2xl font-extrabold text-gold-gradient tracking-wide uppercase">
-                Admin Control Dashboard
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="font-cinzel text-xl sm:text-2xl font-extrabold text-gold-gradient tracking-wide uppercase">
+                  Admin Control Dashboard
+                </h2>
+                {/* Real-time DB Status Badge */}
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow ${
+                  dbStatus.connected
+                    ? 'badge-green'
+                    : 'badge-orange'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${dbStatus.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                  <span>{dbStatus.connected ? 'MongoDB Atlas: Connected' : 'Storage: Active'}</span>
+                </span>
+              </div>
               <p className="text-xs text-[#ffebc2] font-medium mt-0.5">
-                G.Kamal Ganesha Works • Workshop Manager & Operations
+                G.Kamal Ganesha Works • Workshop Manager & Operations ({orders.length} orders loaded)
               </p>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Sync Refresh Button */}
+            <button
+              onClick={() => {
+                fetchAllData();
+                setSuccess('Synchronized live data with MongoDB Atlas!');
+                setTimeout(() => setSuccess(''), 3000);
+              }}
+              className="btn-outline-gold px-3.5 py-2.5 text-xs flex items-center gap-1.5"
+              title="Force Sync with Database"
+            >
+              <span>🔄 Sync Data</span>
+            </button>
+
             {/* Create Order Trigger */}
             <button
               onClick={handleOpenCreateOrder}

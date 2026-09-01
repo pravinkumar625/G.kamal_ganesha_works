@@ -7,15 +7,39 @@ const requireRole = require('../middleware/requireRole');
 // All routes in this router require the 'admin' role
 router.use(requireRole('admin'));
 
-// Helper to find order flexibly by ID
+// Helper to find order flexibly by ID (supports # prefix, case-insensitive, and sequence padding)
 function findOrder(orderId) {
   if (!orderId) return null;
-  const cleanId = decodeURIComponent(String(orderId)).replace(/^#/, '').trim().toLowerCase();
-  return db.findOne('orders', o => {
+  const rawStr = String(orderId).trim();
+  const cleanId = decodeURIComponent(rawStr).replace(/^#/, '').trim().toLowerCase();
+  
+  // 1. Direct or clean ID match
+  let match = db.findOne('orders', o => {
     if (!o || !o.id) return false;
-    const cleanOId = String(o.id).replace(/^#/, '').trim().toLowerCase();
-    return cleanOId === cleanId;
+    const oId = String(o.id).replace(/^#/, '').trim().toLowerCase();
+    return oId === cleanId || o.id === orderId;
   });
+
+  // 2. Flexible sequence matching (e.g. 2026-3 vs 2026-003)
+  if (!match && cleanId.includes('-')) {
+    const parts = cleanId.split('-');
+    if (parts.length === 2) {
+      const year = parts[0];
+      const seq = parseInt(parts[1], 10);
+      if (!isNaN(seq)) {
+        match = db.findOne('orders', o => {
+          if (!o || !o.id) return false;
+          const oParts = String(o.id).replace(/^#/, '').trim().split('-');
+          if (oParts.length === 2) {
+            return oParts[0] === year && parseInt(oParts[1], 10) === seq;
+          }
+          return false;
+        });
+      }
+    }
+  }
+
+  return match;
 }
 
 // --- ORDERS ENDPOINTS ---
