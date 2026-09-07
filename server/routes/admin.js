@@ -360,7 +360,7 @@ router.get('/customers', (req, res) => {
   res.json(enriched);
 });
 
-// Soft Delete a customer (mark as deleted)
+// Complete hard delete a customer from database and memory
 router.delete('/customers/:id', (req, res) => {
   const customerId = req.params.id;
   const user = db.findOne('users', u => u.id === customerId && u.role === 'customer');
@@ -368,15 +368,15 @@ router.delete('/customers/:id', (req, res) => {
     return res.status(404).json({ error: 'Customer not found' });
   }
 
-  const updated = db.update('users', customerId, {
-    deleted: true,
-    deletedAt: new Date().toISOString()
-  });
+  const success = db.delete('users', customerId);
+  if (!success) {
+    return res.status(500).json({ error: 'Failed to delete customer' });
+  }
 
-  res.json({ message: 'Customer moved to deleted list successfully', customer: updated });
+  res.json({ message: 'Customer completely deleted from database' });
 });
 
-// Permanently delete a customer (hard delete)
+// Hard delete customer (permanent endpoint fallback)
 router.delete('/customers/:id/permanent', (req, res) => {
   const customerId = req.params.id;
   const user = db.findOne('users', u => u.id === customerId && u.role === 'customer');
@@ -387,7 +387,7 @@ router.delete('/customers/:id/permanent', (req, res) => {
   if (!success) {
     return res.status(500).json({ error: 'Failed to permanently delete customer' });
   }
-  res.json({ message: 'Customer permanently deleted' });
+  res.json({ message: 'Customer permanently deleted from database' });
 });
 
 // Restore a deleted customer

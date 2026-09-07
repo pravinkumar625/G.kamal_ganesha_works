@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import DiyaDecoration from '../../components/DiyaDecoration';
 import Footer from '../../components/Footer';
 import { 
@@ -7,8 +6,6 @@ import {
   FileText, 
   Download, 
   User, 
-  Edit2, 
-  LogOut, 
   Plus, 
   Minus, 
   CheckCircle, 
@@ -17,206 +14,74 @@ import {
   Sparkles,
   Phone,
   MapPin,
-  Clock,
-  Store
+  RefreshCw,
+  Search,
+  Trash2,
+  ArrowRight,
+  Printer,
+  MessageCircle
 } from 'lucide-react';
 import { generateBillPDF, downloadPDFBlob } from '../../utils/pdfGenerator';
 
 const CustomerDashboard = () => {
-  const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'builder' | 'orders'
+  const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'builder'
   const [catalog, setCatalog] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [user, setUser] = useState(null);
-  
-  // Builder state
-  const [orderQuantities, setOrderQuantities] = useState({});
-  const [orderPriceTypes, setOrderPriceTypes] = useState({});
-  const [advancePayment, setAdvancePayment] = useState(0);
-  
-  // UI states
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewOrderData, setPreviewOrderData] = useState(null);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [activePhotoIndexes, setActivePhotoIndexes] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
   
-  // Form profile
-  const [profileForm, setProfileForm] = useState({
+  // Pricing mode: Wholesale exclusively
+  const priceType = 'wholesale';
+
+  // Selected quantities: { [itemId]: quantity }
+  const [orderQuantities, setOrderQuantities] = useState({});
+  const [advancePayment, setAdvancePayment] = useState(0);
+
+  // Customer bill recipient details (for bill printing)
+  const [customerDetails, setCustomerDetails] = useState({
     name: '',
-    email: '',
+    mobile: '',
     address: ''
   });
 
-  const navigate = useNavigate();
+  // Image carousels active indexes
+  const [activePhotoIndexes, setActivePhotoIndexes] = useState({});
 
-  // Initial load
+  // Preview Modal
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewBillData, setPreviewBillData] = useState(null);
+
+  // Load catalog on mount
   useEffect(() => {
-    const token = localStorage.getItem('customerToken');
-    const cachedUser = localStorage.getItem('customerUser');
-    
-    if (!token) {
-      navigate('/login/customer');
-      return;
-    }
-
-    if (cachedUser) {
-      try {
-        const parsed = JSON.parse(cachedUser);
-        setUser(parsed);
-        setProfileForm({
-          name: (parsed.name && parsed.name !== 'New Customer' ? parsed.name : '') || '',
-          email: parsed.email || '',
-          address: parsed.address || ''
-        });
-        if (!parsed.name || parsed.name === 'New Customer') {
-          setIsEditingProfile(true);
-        }
-      } catch (e) {
-        console.error('Failed to parse cached user:', e);
-      }
-    }
-
-    fetchProfile();
     fetchCatalog();
-    fetchOrders();
+  }, []);
 
-    // Live auto-sync interval for customer dashboard
-    const interval = setInterval(() => {
-      const token = localStorage.getItem('customerToken');
-      if (token && token !== 'undefined' && token !== 'null' && !isPreviewOpen && !isEditingProfile) {
-        fetchOrders();
-      }
-    }, 3500);
-
-    return () => clearInterval(interval);
-  }, [isPreviewOpen, isEditingProfile, navigate]);
-
-  // Helper to update state only when content actually changes (prevents visual flickering/fluctuation)
-  const setIfChanged = (setter, newVal) => {
-    setter(prev => JSON.stringify(prev) === JSON.stringify(newVal) ? prev : newVal);
-  };
-
-  // Fetch logged in customer profile from backend
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch('/api/customer/profile', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUser(prev => JSON.stringify(prev) === JSON.stringify({ ...prev, ...data }) ? prev : { ...prev, ...data });
-        setProfileForm({
-          name: (data.name && data.name !== 'New Customer' ? data.name : '') || '',
-          email: data.email || '',
-          address: data.address || ''
-        });
-        localStorage.setItem('customerUser', JSON.stringify(data));
-        if (data.name && data.name !== 'New Customer') {
-          setIsEditingProfile(false);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching profile:', err);
-    }
-  };
-
-  // Fetch Ganesha catalog items
   const fetchCatalog = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/customer/catalog', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
-        }
-      });
+      // Fetch public catalog
+      const response = await fetch('/api/catalog');
       if (response.ok) {
         const data = await response.json();
-        setIfChanged(setCatalog, data);
-        const defaultTypes = {};
-        data.forEach(item => {
-          defaultTypes[item.id] = 'retail';
-        });
-        setOrderPriceTypes(defaultTypes);
+        setCatalog(data || []);
+      } else {
+        // Fallback to /api/customer/catalog
+        const fallbackRes = await fetch('/api/customer/catalog');
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          setCatalog(fallbackData || []);
+        }
       }
     } catch (err) {
       console.error('Error fetching catalog:', err);
+      setError('Unable to load catalog. Please ensure internet connectivity.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Fetch customer's own order history
-  const fetchOrders = async () => {
-    try {
-      const response = await fetch('/api/customer/orders', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setIfChanged(setOrders, data);
-      }
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-    }
-  };
-
-  // Profile update submission
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!profileForm.name.trim()) {
-      setError('Please provide your Full Name');
-      return;
-    }
-
-    if (!profileForm.address.trim()) {
-      setError('Please provide your Delivery/Residence Address');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/customer/profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
-        },
-        body: JSON.stringify(profileForm)
-      });
-
-      let updatedUser;
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        updatedUser = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || 'Server communication error');
-      }
-
-      if (!response.ok) throw new Error(updatedUser.error || 'Failed to update profile');
-
-      const userData = updatedUser.user || updatedUser;
-      setUser(prev => ({ ...prev, ...userData }));
-      setProfileForm({
-        name: userData.name || '',
-        email: userData.email || '',
-        address: userData.address || ''
-      });
-      localStorage.setItem('customerUser', JSON.stringify(userData));
-      
-      setSuccess('Profile details confirmed successfully!');
-      setIsEditingProfile(false);
-    } catch (err) {
-      setError(err.message || 'Failed to update profile');
-    }
-  };
-
-  // Order quantity controls
+  // Quantity handlers
   const handleQuantityChange = (itemId, val) => {
     const qty = Math.max(0, parseInt(val) || 0);
     setOrderQuantities(prev => ({ ...prev, [itemId]: qty }));
@@ -228,18 +93,53 @@ const CustomerDashboard = () => {
     setOrderQuantities(prev => ({ ...prev, [itemId]: newQty }));
   };
 
-  // Calculate totals dynamically based strictly on customer profile type
-  const getOrderSummary = () => {
+  const removeItem = (itemId) => {
+    setOrderQuantities(prev => {
+      const updated = { ...prev };
+      delete updated[itemId];
+      return updated;
+    });
+  };
+
+  const clearAllItems = () => {
+    setOrderQuantities({});
+    setAdvancePayment(0);
+    setSuccess('Bill items cleared.');
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  // Photo carousel navigation
+  const nextPhoto = (itemId, maxPhotos, e) => {
+    e.stopPropagation();
+    setActivePhotoIndexes(prev => ({
+      ...prev,
+      [itemId]: ((prev[itemId] || 0) + 1) % maxPhotos
+    }));
+  };
+
+  const prevPhoto = (itemId, maxPhotos, e) => {
+    e.stopPropagation();
+    setActivePhotoIndexes(prev => ({
+      ...prev,
+      [itemId]: ((prev[itemId] || 0) - 1 + maxPhotos) % maxPhotos
+    }));
+  };
+
+  // Calculate bill totals
+  const getBillSummary = () => {
     const selectedItems = [];
     let grandTotal = 0;
-    const customerType = user?.customerType || 'retail';
+    let totalUnits = 0;
 
     catalog.forEach(item => {
       const qty = orderQuantities[item.id] || 0;
       if (qty > 0) {
-        const rate = customerType === 'wholesale' ? item.wholesalePrice : item.retailPrice;
+        const rate = priceType === 'wholesale' 
+          ? Number(item.wholesalePrice || item.retailPrice || 0)
+          : Number(item.retailPrice || 0);
         const lineTotal = rate * qty;
         grandTotal += lineTotal;
+        totalUnits += qty;
         selectedItems.push({
           itemId: item.id,
           name: item.name,
@@ -251,266 +151,227 @@ const CustomerDashboard = () => {
       }
     });
 
-    const balanceDue = Math.max(0, grandTotal - (Number(advancePayment) || 0));
+    const advance = Math.min(grandTotal, Math.max(0, Number(advancePayment) || 0));
+    const balanceDue = Math.max(0, grandTotal - advance);
 
     return {
       items: selectedItems,
+      totalUnits,
       grandTotal,
-      advancePayment: Number(advancePayment) || 0,
+      advancePayment: advance,
       balanceDue
     };
   };
 
-  const summary = getOrderSummary();
+  const billSummary = getBillSummary();
 
-  // Prepare order details for checking bill review
-  const handleViewBill = () => {
-    setError('');
-    if (summary.items.length === 0) {
-      setError('Please select at least one item and quantity to create a bill.');
-      return;
-    }
-    
-    if (!user.name || user.name === 'New Customer') {
-      setError('Please confirm your Name and Address in the profile card before generating a bill.');
-      setIsEditingProfile(true);
-      return;
-    }
-
-    const orderPreview = {
-      id: 'PREVIEW',
+  // Create Bill Object for PDF or Preview
+  const buildBillObject = () => {
+    const billId = `BILL-${Math.floor(1000 + Math.random() * 9000)}`;
+    return {
+      id: billId,
       customerDetails: {
-        name: user.name,
-        mobile: user.mobile,
-        email: user.email || '',
-        address: user.address || ''
+        name: customerDetails.name.trim() || 'Valued Customer',
+        mobile: customerDetails.mobile.trim() || 'N/A',
+        address: customerDetails.address.trim() || 'Bangalore',
+        email: ''
       },
-      items: summary.items,
-      grandTotal: summary.grandTotal,
-      advancePayment: summary.advancePayment,
-      balanceDue: summary.balanceDue,
+      items: billSummary.items,
+      grandTotal: billSummary.grandTotal,
+      advancePayment: billSummary.advancePayment,
+      balanceDue: billSummary.balanceDue,
       createdAt: new Date().toISOString()
     };
+  };
 
-    setPreviewOrderData(orderPreview);
+  // Open Preview Modal
+  const handlePreviewBill = () => {
+    setError('');
+    if (billSummary.items.length === 0) {
+      setError('Please select at least one Ganesha idol from the catalog to generate a bill.');
+      return;
+    }
+    const billData = buildBillObject();
+    setPreviewBillData(billData);
     setIsPreviewOpen(true);
   };
 
-  // Final submit order and download checking bill PDF
-  const handleFinalSubmit = async () => {
-    setLoading(true);
+  // Instant Download Checking Bill PDF
+  const handleDownloadCheckingBill = () => {
     setError('');
-    
-    try {
-      const response = await fetch('/api/customer/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
-        },
-        body: JSON.stringify({
-          items: summary.items,
-          grandTotal: summary.grandTotal,
-          advancePayment: summary.advancePayment,
-          balanceDue: summary.balanceDue
-        })
-      });
-
-      const savedOrder = await response.json();
-      if (!response.ok) throw new Error(savedOrder.error);
-
-      setOrderQuantities({});
-      setAdvancePayment(0);
-      setIsPreviewOpen(false);
-      setSuccess(`Order #${savedOrder.id} submitted successfully!`);
-      fetchOrders();
-      setActiveTab('orders');
-    } catch (err) {
-      setError(err.message || 'Error submitting order.');
-    } finally {
-      setLoading(false);
+    if (billSummary.items.length === 0) {
+      setError('Please select at least one Ganesha idol from the catalog to generate a bill.');
+      return;
     }
-  };
-
-  // Client side checking bill download from orders list
-  const downloadLocalCheckingBill = (order) => {
-    const doc = generateBillPDF(order, 'CHECKING BILL', true);
-    downloadPDFBlob(doc, `Checking_Bill_${order.id}.pdf`);
-  };
-
-  // Fetch approved Original Bill PDF (Server-gated endpoint with fallback generation)
-  const downloadServerOriginalBill = async (orderId) => {
-    setError('');
     try {
-      const response = await fetch(`/api/customer/orders/${orderId}/original-bill`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('customerToken')}`
-        }
-      });
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to download original bill');
-      }
-
-      if (data.pdfBase64 && data.pdfBase64.startsWith('data:application/pdf')) {
-        const downloadLink = document.createElement('a');
-        downloadLink.href = data.pdfBase64;
-        downloadLink.download = `Original_Ganesha_Bill_${orderId}.pdf`;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-      } else {
-        const targetOrder = data.order || orders.find(o => o.id === orderId);
-        if (targetOrder) {
-          const doc = generateBillPDF(targetOrder, 'G.kamal ganesha works', false);
-          downloadPDFBlob(doc, `Original_Ganesha_Bill_${orderId}.pdf`);
-        } else {
-          throw new Error('Order details not found');
-        }
-      }
+      const billData = previewBillData || buildBillObject();
+      const doc = generateBillPDF(billData, 'CHECKING BILL', true);
+      const safeName = (billData.customerDetails?.name || 'Customer').replace(/[^a-zA-Z0-9]/g, '_');
+      downloadPDFBlob(doc, `Checking_Bill_${safeName}.pdf`);
+      setSuccess('Checking Bill PDF downloaded successfully!');
+      setTimeout(() => setSuccess(''), 4000);
+      setIsPreviewOpen(false);
     } catch (err) {
       console.error('Error downloading bill:', err);
-      const targetOrder = orders.find(o => o.id === orderId);
-      if (targetOrder && targetOrder.status === 'finalized') {
-        const doc = generateBillPDF(targetOrder, 'G.kamal ganesha works', false);
-        downloadPDFBlob(doc, `Original_Ganesha_Bill_${orderId}.pdf`);
-      } else {
-        setError(err.message || 'Access Denied: Original Bill not finalized.');
-      }
+      setError('Failed to generate PDF. Please try again.');
     }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
+  // Direct WhatsApp Share to Store Number 8792044625
+  const shareOnWhatsApp = (customBill = null) => {
+    setError('');
+    if (billSummary.items.length === 0) {
+      setError('Please select at least one Ganesha idol from the catalog to generate and share a bill.');
+      return;
+    }
+    const data = customBill || previewBillData || buildBillObject();
+    const phone = '918792044625';
+
+    const itemsList = data.items.map((it, idx) => 
+      `${idx + 1}. *${it.name}* (${it.size}) - Qty: ${it.quantity} @ Rs.${it.rate.toLocaleString('en-IN')} = *Rs.${it.lineTotal.toLocaleString('en-IN')}*`
+    ).join('\n');
+
+    const text = 
+`🙏 *G.KAMAL GANESHA WORKS*
+_Eco-Friendly Clay Idols • Bangalore_
+----------------------------------
+📋 *CHECKING BILL / ESTIMATE*
+🔢 *Bill Ref:* #${data.id}
+📅 *Date:* ${new Date().toLocaleDateString('en-IN')}
+🏷️ *Pricing Tier:* ${priceType.toUpperCase()}
+
+👤 *CUSTOMER DETAILS:*
+• *Name:* ${data.customerDetails.name}
+• *Mobile:* ${data.customerDetails.mobile}
+• *Address:* ${data.customerDetails.address}
+
+📦 *SELECTED GANESHA IDOLS:*
+${itemsList}
+
+💰 *FINANCIAL SUMMARY:*
+• *Total Idols:* ${billSummary.totalUnits} Units
+• *Grand Total:* Rs.${data.grandTotal.toLocaleString('en-IN')}
+• *Advance Paid:* Rs.${data.advancePayment.toLocaleString('en-IN')}
+• *Balance Due:* Rs.${data.balanceDue.toLocaleString('en-IN')}
+
+📍 *Store Location:* Thanisandra Main Road, Vidyasagar, Bangalore - 560077
+📞 *Contact:* 9739142445 / 8792044625
+----------------------------------
+_Generated from G.Kamal Ganesha Works Portal_`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
+
+  // Filter catalog items
+  const filteredCatalog = catalog.filter(item => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      (item.name && item.name.toLowerCase().includes(query)) ||
+      (item.size && item.size.toLowerCase().includes(query)) ||
+      (item.description && item.description.toLowerCase().includes(query))
+    );
+  });
 
   return (
     <div className="min-h-screen flex flex-col justify-between relative text-[#f7f9fa]">
       <main className="relative z-10 flex-grow max-w-6xl mx-auto w-full px-4 sm:px-6 py-6">
         
-        {/* Portal Greeting Banner */}
+        {/* Banner */}
         <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/30 shadow-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
             <DiyaDecoration className="w-12 h-12 animate-float" />
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="font-cinzel text-xl sm:text-2xl font-extrabold text-gold-gradient tracking-wide uppercase">
-                  Welcome, {user?.name || 'Customer'}
+                  G.Kamal Ganesha Works
                 </h2>
-                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                  user?.customerType === 'wholesale' ? 'badge-gold' : 'badge-orange'
-                }`}>
-                  {user?.customerType === 'wholesale' ? 'Wholesale Tier' : 'Retail Tier'}
+                <span className="badge-gold text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                  100% Eco-Friendly Clay Idols
                 </span>
               </div>
-              <p className="text-xs text-[#cbd5e1] mt-1 flex items-center gap-2 font-medium">
-                <span className="text-[#ffd700]">📞 {user?.mobile}</span>
-                {user?.address && <span>• 📍 {user.address}</span>}
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-[#cbd5e1] font-medium">
+                <span className="text-[#ffd700]">📍 Thanisandra Main Road, Bangalore</span>
+                <span className="hidden sm:inline">•</span>
+                <a
+                  href="https://wa.me/918792044625?text=Hello%20G.Kamal%20Ganesha%20Works,%20I%20would%20like%20to%20enquire%20about%20Clay%20Ganesha%20Idols."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[#25D366] hover:text-white bg-[#25D366]/15 hover:bg-[#25D366]/30 border border-[#25D366]/40 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all"
+                  title="Direct WhatsApp chat to 8792044625"
+                >
+                  <MessageCircle size={12} className="text-[#25D366]" />
+                  <span>WhatsApp: 8792044625</span>
+                </a>
+              </div>
             </div>
           </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsEditingProfile(!isEditingProfile)}
-              className="btn-outline-gold px-4 py-2 text-xs flex items-center gap-1.5"
-            >
-              <Edit2 size={13} />
-              <span>{isEditingProfile ? 'Close Profile' : 'Edit Profile'}</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-red-950/40 text-red-300 px-4 py-2 rounded-xl hover:bg-red-900/40 transition-colors border border-red-500/30"
-            >
-              <LogOut size={13} />
-              <span>Logout</span>
-            </button>
+
+          {/* Wholesale Pricing Badge */}
+          <div className="flex items-center gap-2 bg-[#ffd700]/15 border border-[#ffd700]/40 px-4 py-2.5 rounded-xl text-xs font-cinzel font-bold text-[#ffd700] uppercase tracking-wider shadow-lg">
+            <Sparkles size={15} className="text-[#ff6a00]" />
+            <span>✦ Direct Wholesale Pricing ✦</span>
           </div>
         </div>
 
-        {/* Dynamic Alerts */}
+        {/* Global Floating/Header Cart Status */}
+        {billSummary.totalUnits > 0 && (
+          <div className="glass-panel p-4 mb-6 border-2 border-[#ffd700]/50 bg-[#2d0007]/80 flex flex-col sm:flex-row justify-between items-center gap-3 animate-fadeIn shadow-xl">
+            <div className="flex items-center gap-3 text-xs sm:text-sm">
+              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="font-semibold text-[#ffebc2]">
+                <strong className="text-[#ffd700] text-base">{billSummary.totalUnits}</strong> {billSummary.totalUnits === 1 ? 'idol' : 'idols'} selected
+              </span>
+              <span className="text-gray-400">|</span>
+              <span className="font-bold text-base text-[#ffd700]">
+                Grand Total: ₹{billSummary.grandTotal.toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              {activeTab !== 'builder' && (
+                <button
+                  onClick={() => setActiveTab('builder')}
+                  className="btn-gold px-4 py-2 text-xs flex items-center gap-1.5 font-bold shadow-lg"
+                >
+                  <FileText size={14} />
+                  <span>Review & Generate Bill →</span>
+                </button>
+              )}
+              
+              <button
+                onClick={() => shareOnWhatsApp()}
+                className="bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold px-3.5 py-2 text-xs flex items-center gap-1.5 rounded-xl shadow-lg transition-transform hover:scale-105"
+                title="Send bill directly on WhatsApp to 8792044625"
+              >
+                <MessageCircle size={15} />
+                <span>WhatsApp to 8792044625</span>
+              </button>
+
+              <button
+                onClick={handlePreviewBill}
+                className="btn-outline-gold px-3 py-2 text-xs flex items-center gap-1.5"
+                title="Instant preview"
+              >
+                <Eye size={14} />
+                <span>Quick Preview</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Notifications */}
         {error && (
-          <div className="mb-6 p-4 bg-red-950/70 border border-red-500/60 rounded-xl text-red-200 text-xs flex items-start gap-2.5 animate-pulse">
+          <div className="mb-6 p-4 bg-red-950/80 border border-red-500/60 rounded-xl text-red-200 text-xs flex items-start gap-2.5 animate-fadeIn">
             <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="mb-6 p-4 bg-emerald-950/70 border border-emerald-500/60 rounded-xl text-emerald-200 text-xs flex items-start gap-2.5 animate-fadeIn">
+          <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-500/60 rounded-xl text-emerald-200 text-xs flex items-start gap-2.5 animate-fadeIn">
             <CheckCircle size={16} className="mt-0.5 shrink-0 text-emerald-400" />
             <span>{success}</span>
-          </div>
-        )}
-
-        {/* Profile Completion / Edit Panel */}
-        {isEditingProfile && (
-          <div className="glass-panel p-6 sm:p-8 border-2 border-[#ffd700]/40 rounded-2xl mb-8 animate-fadeIn shadow-2xl">
-            <h3 className="font-cinzel text-base font-bold text-[#ffd700] mb-1.5 flex items-center gap-2">
-              <User size={18} className="text-[#ff6a00]" />
-              <span>Confirm Your Delivery & Billing Details</span>
-            </h3>
-            <p className="text-xs text-[#cbd5e1] mb-5 font-medium">
-              Your name and address are formatted on official bills and dispatched to our workshop.
-            </p>
-            <form onSubmit={handleProfileSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#ffebc2] mb-1.5 font-cinzel">
-                  Full Name <span className="text-[#ff6a00]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={profileForm.name}
-                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                  placeholder="Your Full Name"
-                  className="w-full px-3.5 py-2.5 input-glass text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#ffebc2] mb-1.5 font-cinzel">
-                  Email (Optional)
-                </label>
-                <input
-                  type="email"
-                  value={profileForm.email}
-                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                  placeholder="name@email.com"
-                  className="w-full px-3.5 py-2.5 input-glass text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#ffebc2] mb-1.5 font-cinzel">
-                  Delivery / Residence Address <span className="text-[#ff6a00]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={profileForm.address}
-                  onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
-                  placeholder="Bangalore Address"
-                  className="w-full px-3.5 py-2.5 input-glass text-sm"
-                />
-              </div>
-              <div className="md:col-span-3 flex justify-end gap-3 mt-2">
-                {user?.name !== 'New Customer' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingProfile(false)}
-                    className="btn-outline-gold px-4 py-2 text-xs"
-                  >
-                    Cancel
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  className="btn-gold px-6 py-2 text-xs"
-                >
-                  Save Profile Details
-                </button>
-              </div>
-            </form>
           </div>
         )}
 
@@ -518,143 +379,214 @@ const CustomerDashboard = () => {
         <div className="flex border-b border-[#ffd700]/25 mb-8 gap-3">
           <button
             onClick={() => setActiveTab('catalog')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
               activeTab === 'catalog'
                 ? 'border-[#ffd700] text-[#ffd700] bg-[#ffd700]/10 rounded-t-xl'
                 : 'border-transparent text-[#cbd5e1] hover:text-white'
             }`}
           >
             <ShoppingBag size={16} />
-            <span>Catalog Gallery</span>
+            <span>✦ Divine Ganesha Catalog ({catalog.length})</span>
           </button>
           
           <button
             onClick={() => setActiveTab('builder')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
               activeTab === 'builder'
                 ? 'border-[#ffd700] text-[#ffd700] bg-[#ffd700]/10 rounded-t-xl'
                 : 'border-transparent text-[#cbd5e1] hover:text-white'
             }`}
           >
             <FileText size={16} />
-            <span>Create Bill / Order</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
-              activeTab === 'orders'
-                ? 'border-[#ffd700] text-[#ffd700] bg-[#ffd700]/10 rounded-t-xl'
-                : 'border-transparent text-[#cbd5e1] hover:text-white'
-            }`}
-          >
-            <Download size={16} />
-            <span>My Orders & Bills ({orders.length})</span>
+            <span>✦ Generate Checking Bill {billSummary.totalUnits > 0 ? `(${billSummary.totalUnits})` : ''}</span>
           </button>
         </div>
 
-        {/* Tab 1: Catalog Grid */}
+        {/* TAB 1: CATALOG GALLERY */}
         {activeTab === 'catalog' && (
           <div className="space-y-6">
             <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/20 shadow-2xl">
-              <div className="flex justify-between items-center border-b border-[#ffd700]/15 pb-4 mb-6">
-                <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-gradient tracking-wide">
-                  ✦ Divine Idol Catalog ✦
-                </h3>
-                <span className="text-xs text-[#ffebc2] font-semibold">
-                  Showing pricing for: <strong className="text-[#ffd700] uppercase">{user?.customerType || 'retail'}</strong>
-                </span>
+              
+              {/* Header with Search & Filter */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[#ffd700]/15 pb-4 mb-6 gap-4">
+                <div>
+                  <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-gradient tracking-wide">
+                    Handcrafted Eco-Friendly Ganesha Idols
+                  </h3>
+                  <p className="text-xs text-[#cbd5e1] mt-0.5">
+                    Select quantities for any idol model to calculate your instant Checking Bill.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="relative flex-grow sm:w-64">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ffd700]/60" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search idol name or size..."
+                      className="w-full pl-9 pr-3 py-1.5 input-glass text-xs"
+                    />
+                  </div>
+                  <button
+                    onClick={fetchCatalog}
+                    className="btn-outline-gold p-2 text-xs"
+                    title="Refresh catalog"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
               </div>
               
-              {catalog.length === 0 ? (
-                <p className="text-center text-[#cbd5e1] py-12 font-medium">Loading catalog models...</p>
+              {loading ? (
+                <div className="text-center text-[#ffd700] py-16 flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-2 border-[#ffd700] border-t-transparent rounded-full animate-spin"></div>
+                  <p className="font-cinzel text-sm">Loading divine idol models...</p>
+                </div>
+              ) : filteredCatalog.length === 0 ? (
+                <div className="text-center text-[#cbd5e1] py-16">
+                  <p className="font-cinzel text-base text-[#ffd700] mb-2">No Ganesha Idols Found</p>
+                  <p className="text-xs">Try clearing your search query or refreshing the catalog.</p>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {catalog.map(item => {
+                  {filteredCatalog.map(item => {
                     const itemImages = item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []);
                     const currentPhotoIdx = activePhotoIndexes[item.id] || 0;
                     const hasMultiplePhotos = itemImages.length > 1;
 
-                    const customerType = user?.customerType || 'retail';
-                    const activeRate = customerType === 'wholesale' ? item.wholesalePrice : item.retailPrice;
-                    const rateLabel = customerType === 'wholesale' ? 'Wholesale Price (Bulk)' : 'Retail Price';
+                    const rate = priceType === 'wholesale' 
+                      ? Number(item.wholesalePrice || item.retailPrice || 0)
+                      : Number(item.retailPrice || 0);
+                    const currentQty = orderQuantities[item.id] || 0;
 
                     return (
-                      <div key={item.id} className="glass-panel border border-[#ffd700]/20 rounded-2xl overflow-hidden shadow-lg hover:border-[#ffd700]/60 transition-all flex flex-col group hover:-translate-y-1.5">
-                        {/* Image Carousel Block */}
+                      <div 
+                        key={item.id} 
+                        className={`glass-panel border rounded-2xl overflow-hidden shadow-lg transition-all flex flex-col group ${
+                          currentQty > 0 
+                            ? 'border-[#ffd700] shadow-[#ffd700]/10 ring-1 ring-[#ffd700]/50' 
+                            : 'border-[#ffd700]/20 hover:border-[#ffd700]/60'
+                        }`}
+                      >
+                        {/* Image Carousel */}
                         <div className="relative aspect-square w-full bg-black/40 border-b border-[#ffd700]/15 flex items-center justify-center overflow-hidden">
                           {itemImages.length > 0 ? (
                             <img
                               src={itemImages[currentPhotoIdx]}
                               alt={`${item.name} - View ${currentPhotoIdx + 1}`}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : (
                             <div className="text-[#ffd700] text-xs font-cinzel font-bold uppercase tracking-wider">
-                              No Image Available
+                              Divine Clay Ganesha
                             </div>
                           )}
 
                           {hasMultiplePhotos && (
                             <>
                               <button
-                                onClick={(e) => {
-                                   e.stopPropagation();
-                                  const prevIdx = (currentPhotoIdx - 1 + itemImages.length) % itemImages.length;
-                                  setActivePhotoIndexes(prev => ({ ...prev, [item.id]: prevIdx }));
-                                }}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-[#ffd700] w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all opacity-0 group-hover:opacity-100"
+                                onClick={(e) => prevPhoto(item.id, itemImages.length, e)}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-all"
+                                title="Previous Photo"
                               >
-                                ◀
+                                ‹
                               </button>
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const nextIdx = (currentPhotoIdx + 1) % itemImages.length;
-                                  setActivePhotoIndexes(prev => ({ ...prev, [item.id]: nextIdx }));
-                                }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-[#ffd700] w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all opacity-0 group-hover:opacity-100"
+                                onClick={(e) => nextPhoto(item.id, itemImages.length, e)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-all"
+                                title="Next Photo"
                               >
-                                ▶
+                                ›
                               </button>
-                              <span className="absolute bottom-2 right-2 bg-black/75 text-[#ffd700] text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#ffd700]/30">
-                                {currentPhotoIdx + 1} / {itemImages.length}
-                              </span>
+                              <div className="absolute bottom-2 left-1/2 -translate-y-0 -translate-x-1/2 flex gap-1 bg-black/50 px-2 py-0.5 rounded-full">
+                                {itemImages.map((_, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={`w-1.5 h-1.5 rounded-full transition-all ${
+                                      idx === currentPhotoIdx ? 'bg-[#ffd700] w-3' : 'bg-white/40'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
                             </>
                           )}
 
-                          {/* Eco badge */}
-                          <span className="absolute top-2.5 left-2.5 badge-orange text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-                            100% Eco Clay
+                          {/* Size Tag */}
+                          <span className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md text-[#ffd700] border border-[#ffd700]/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                            📏 {item.size || 'Custom Size'}
                           </span>
+
+                          {/* Selected Quantity Badge */}
+                          {currentQty > 0 && (
+                            <span className="absolute top-2.5 right-2.5 bg-[#ffd700] text-[#1a0003] font-black text-xs px-2.5 py-0.5 rounded-full shadow-lg">
+                              ✓ {currentQty} Selected
+                            </span>
+                          )}
                         </div>
 
-                        {/* Details Block */}
-                        <div className="p-5 flex-grow flex flex-col justify-between">
+                        {/* Card Content */}
+                        <div className="p-5 flex flex-col justify-between flex-grow">
                           <div>
-                            <h4 className="font-cinzel font-bold text-base text-gold-gradient">{item.name}</h4>
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="badge-gold text-[10px] font-bold px-2 py-0.5 rounded">
-                                Size: {item.size}
-                              </span>
-                            </div>
+                            <h4 className="font-cinzel text-base font-bold text-[#ffd700] mb-1">
+                              {item.name}
+                            </h4>
+                            <p className="text-xs text-[#cbd5e1] line-clamp-2 mb-3">
+                              {item.description || 'Eco-friendly pure organic clay idol handcrafted with natural divine beauty.'}
+                            </p>
                           </div>
-                          
-                          <div className="mt-4 pt-3 border-t border-[#ffd700]/15 flex justify-between items-end">
-                            <div>
-                              <p className="text-[10px] text-[#ffebc2] uppercase font-bold tracking-wider">{rateLabel}</p>
-                              <p className="text-xl font-cinzel font-extrabold text-[#ffd700]">₹{activeRate?.toLocaleString()}</p>
+
+                          {/* Pricing & Controls */}
+                          <div className="border-t border-[#ffd700]/15 pt-3">
+                            <div className="flex justify-between items-baseline mb-3">
+                              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                                Wholesale Price:
+                              </span>
+                              <div className="text-right">
+                                <span className="font-cinzel text-lg font-black text-gold-gradient">
+                                  ₹{rate.toLocaleString('en-IN')}
+                                </span>
+                              </div>
                             </div>
-                            <button
-                              onClick={() => {
-                                adjustQuantity(item.id, 1);
-                                setActiveTab('builder');
-                              }}
-                              className="btn-gold px-3.5 py-1.5 text-xs flex items-center gap-1 shadow"
-                            >
-                              <Plus size={13} />
-                              <span>Order</span>
-                            </button>
+
+                            {/* Quantity Selector */}
+                            {currentQty === 0 ? (
+                              <button
+                                onClick={() => adjustQuantity(item.id, 1)}
+                                className="w-full btn-outline-gold py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#ffd700]/15 transition-all"
+                              >
+                                <Plus size={14} />
+                                <span>Add to Bill</span>
+                              </button>
+                            ) : (
+                              <div className="flex items-center justify-between bg-black/40 border border-[#ffd700]/40 rounded-xl p-1.5">
+                                <button
+                                  onClick={() => adjustQuantity(item.id, -1)}
+                                  className="w-8 h-8 rounded-lg bg-[#ffd700]/10 hover:bg-[#ffd700]/25 text-[#ffd700] flex items-center justify-center font-bold"
+                                  title="Decrease"
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                
+                                <div className="text-center">
+                                  <span className="font-cinzel font-bold text-sm text-[#ffd700]">
+                                    {currentQty}
+                                  </span>
+                                  <span className="block text-[9px] text-gray-400 uppercase">
+                                    Total: ₹{(rate * currentQty).toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+
+                                <button
+                                  onClick={() => adjustQuantity(item.id, 1)}
+                                  className="w-8 h-8 rounded-lg bg-[#ffd700] hover:bg-[#ffe24d] text-[#1a0003] flex items-center justify-center font-bold"
+                                  title="Increase"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -666,396 +598,416 @@ const CustomerDashboard = () => {
           </div>
         )}
 
-        {/* Tab 2: Live Order Builder / Bill Creator */}
+        {/* TAB 2: GENERATE CHECKING BILL */}
         {activeTab === 'builder' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Items selection */}
-            <div className="lg:col-span-2 glass-panel p-6 sm:p-8 border border-[#ffd700]/20 shadow-2xl">
-              <h3 className="font-cinzel text-base sm:text-lg font-bold text-gold-gradient mb-4 pb-2 border-b border-[#ffd700]/15">
-                Select Items & Order Quantities
+          <div className="space-y-6">
+            
+            {/* Customer Details Card (Printed on Bill) */}
+            <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/30 shadow-2xl">
+              <h3 className="font-cinzel text-base sm:text-lg font-bold text-[#ffd700] mb-2 flex items-center gap-2">
+                <User size={18} className="text-[#ff6a00]" />
+                <span>1. Bill Recipient Details (Printed on Invoice)</span>
               </h3>
-              
-              <div className="space-y-4">
-                {catalog.length === 0 ? (
-                  <p className="text-center text-[#cbd5e1] py-6 text-sm font-medium">No items in the catalog.</p>
-                ) : (
-                  catalog.map(item => {
-                    const qty = orderQuantities[item.id] || 0;
-                    const customerType = user?.customerType || 'retail';
-                    const activeRate = customerType === 'wholesale' ? item.wholesalePrice : item.retailPrice;
-                    const primaryImg = item.images && item.images.length > 0 ? item.images[0] : item.image;
+              <p className="text-xs text-[#cbd5e1] mb-6">
+                Enter customer information below. These details will be formatted directly onto your official Checking Bill.
+              </p>
 
-                    return (
-                      <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl border border-[#ffd700]/15 hover:border-[#ffd700]/40 bg-black/20 transition-all gap-4">
-                        <div className="flex items-center gap-3">
-                          {primaryImg ? (
-                            <img src={primaryImg} alt={item.name} className="w-14 h-14 object-cover rounded-xl border border-[#ffd700]/25 shrink-0" />
-                          ) : (
-                            <div className="w-14 h-14 bg-[#4a0e17]/50 border border-dashed border-[#ffd700]/30 rounded-xl flex items-center justify-center text-[#ffd700] text-[9px] font-bold shrink-0">
-                              No Image
-                            </div>
-                          )}
-                          <div>
-                            <h4 className="font-cinzel font-bold text-sm text-[#ffd700]">{item.name}</h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="badge-gold text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                Size: {item.size}
-                              </span>
-                              <span className="text-xs text-[#ffebc2] font-semibold">
-                                Rate: ₹{activeRate?.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Qty controls */}
-                        <div className="flex items-center border border-[#ffd700]/30 rounded-xl overflow-hidden bg-black/40">
-                          <button
-                            onClick={() => adjustQuantity(item.id, -1)}
-                            className="p-2.5 hover:bg-[#ffd700]/20 text-[#ffd700] transition-colors"
-                          >
-                            <Minus size={14} />
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            value={qty}
-                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                            className="w-12 text-center bg-transparent outline-none text-sm font-bold text-[#ffd700]"
-                          />
-                          <button
-                            onClick={() => adjustQuantity(item.id, 1)}
-                            className="p-2.5 hover:bg-[#ffd700]/20 text-[#ffd700] transition-colors"
-                          >
-                            <Plus size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Live Calculation Sidebar */}
-            <div className="glass-panel p-6 sm:p-8 border-2 border-[#ffd700]/30 shadow-2xl h-fit">
-              <h3 className="font-cinzel text-base font-bold text-gold-gradient mb-4 pb-2 border-b border-[#ffd700]/20 uppercase tracking-wide">
-                Live Bill Calculator
-              </h3>
-
-              {summary.items.length === 0 ? (
-                <div className="text-center py-8 text-[#cbd5e1] text-xs leading-relaxed font-medium">
-                  No items selected yet. Adjust quantities on the left to build your bill.
-                </div>
-              ) : (
-                <div className="space-y-3 mb-6 max-h-56 overflow-y-auto pr-1">
-                  {summary.items.map(item => (
-                    <div key={item.itemId} className="flex justify-between items-center text-xs border-b border-[#ffd700]/10 pb-2">
-                      <div>
-                        <span className="font-bold text-[#ffd700]">{item.name}</span>
-                        <span className="text-[10px] text-[#cbd5e1] block">({item.size} × {item.quantity})</span>
-                      </div>
-                      <span className="font-bold text-[#ffebc2]">₹{item.lineTotal?.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Advance and Totals */}
-              <div className="space-y-4 pt-3 border-t border-[#ffd700]/20">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-semibold text-[#ffebc2]">Grand Total:</span>
-                  <span className="font-cinzel font-extrabold text-[#ffd700] text-xl">₹{summary.grandTotal?.toLocaleString()}</span>
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#ffebc2] mb-1 font-cinzel">
-                    Advance Payment (₹)
+                  <label className="block text-xs font-semibold text-[#ffebc2] mb-1.5 uppercase tracking-wider">
+                    Customer Name
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    max={summary.grandTotal}
-                    value={advancePayment || ''}
-                    onChange={(e) => setAdvancePayment(Math.max(0, parseFloat(e.target.value) || 0))}
-                    placeholder="Enter advance amount"
-                    disabled={summary.grandTotal === 0}
-                    className="w-full px-3.5 py-2.5 input-glass text-sm disabled:opacity-40"
+                    type="text"
+                    value={customerDetails.name}
+                    onChange={(e) => setCustomerDetails({ ...customerDetails, name: e.target.value })}
+                    placeholder="Enter Customer / Mandali Name"
+                    className="w-full input-glass p-3 text-xs"
                   />
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#4a0e17]/60 border border-red-500/40 flex justify-between items-center text-sm">
-                  <span className="font-bold text-red-300">Balance Due:</span>
-                  <span className="font-cinzel font-extrabold text-red-200 text-lg">₹{summary.balanceDue?.toLocaleString()}</span>
+                <div>
+                  <label className="block text-xs font-semibold text-[#ffebc2] mb-1.5 uppercase tracking-wider">
+                    Mobile Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={customerDetails.mobile}
+                    onChange={(e) => setCustomerDetails({ ...customerDetails, mobile: e.target.value })}
+                    placeholder="Enter 10-Digit Mobile Number"
+                    className="w-full input-glass p-3 text-xs"
+                  />
                 </div>
 
-                <button
-                  onClick={handleViewBill}
-                  disabled={summary.items.length === 0}
-                  className="w-full btn-gold py-3.5 text-xs flex justify-center items-center gap-2 shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-40 mt-2"
-                >
-                  <Eye size={16} />
-                  <span>Preview Checking Bill</span>
-                </button>
+                <div>
+                  <label className="block text-xs font-semibold text-[#ffebc2] mb-1.5 uppercase tracking-wider">
+                    Delivery / Residence Address
+                  </label>
+                  <input
+                    type="text"
+                    value={customerDetails.address}
+                    onChange={(e) => setCustomerDetails({ ...customerDetails, address: e.target.value })}
+                    placeholder="Enter Address / Area"
+                    className="w-full input-glass p-3 text-xs"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Tab 3: Order History */}
-        {activeTab === 'orders' && (
-          <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/20 shadow-2xl">
-            <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-gradient mb-6 flex items-center gap-2">
-              ✦ My Order & Bill History ✦
-            </h3>
+            {/* Selected Idols Table Card */}
+            <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/30 shadow-2xl">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-[#ffd700]/20 mb-6 gap-3">
+                <div>
+                  <h3 className="font-cinzel text-base sm:text-lg font-bold text-[#ffd700] flex items-center gap-2">
+                    <ShoppingBag size={18} className="text-[#ff6a00]" />
+                    <span>2. Selected Ganesha Idols</span>
+                  </h3>
+                  <span className="text-xs text-[#cbd5e1]">
+                    Pricing applied: <strong className="text-[#ffd700] uppercase">{priceType} Tier</strong>
+                  </span>
+                </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-[#ffd700]/30 text-[11px] font-cinzel font-bold text-[#ffd700] uppercase bg-[#ffd700]/5">
-                    <th className="py-3.5 px-4">Order ID</th>
-                    <th className="py-3.5 px-4">Date</th>
-                    <th className="py-3.5 px-4">Items Summary</th>
-                    <th className="py-3.5 px-4 text-right">Grand Total</th>
-                    <th className="py-3.5 px-4 text-right">Balance Due</th>
-                    <th className="py-3.5 px-4 text-center">Status</th>
-                    <th className="py-3.5 px-4 text-right">Bill Downloads</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#ffd700]/10">
-                  {orders.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="py-12 text-center text-[#cbd5e1] font-medium">
-                        You haven't placed any orders yet. Switch to the <strong>Create Bill</strong> tab to get started.
-                      </td>
-                    </tr>
-                  ) : (
-                    orders.map(order => {
-                      const dateStr = new Date(order.createdAt).toLocaleDateString();
-                      const summaryText = order.items.map(i => `${i.name} (${i.quantity})`).join(', ');
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveTab('catalog')}
+                    className="btn-outline-gold px-3.5 py-1.5 text-xs flex items-center gap-1.5"
+                  >
+                    <Plus size={14} />
+                    <span>Add More Idols</span>
+                  </button>
+                  {billSummary.items.length > 0 && (
+                    <button
+                      onClick={clearAllItems}
+                      className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all flex items-center gap-1"
+                      title="Clear all"
+                    >
+                      <Trash2 size={13} />
+                      <span>Clear All</span>
+                    </button>
+                  )}
+                </div>
+              </div>
 
-                      return (
-                        <tr key={order.id} className="hover:bg-white/5 transition-colors">
-                          <td className="py-4 px-4 font-mono font-bold text-[#ffd700]">#{order.id}</td>
-                          <td className="py-4 px-4 text-[#ffebc2]">{dateStr}</td>
-                          <td className="py-4 px-4 text-[#cbd5e1] font-medium max-w-xs truncate" title={summaryText}>
-                            {summaryText}
-                          </td>
-                          <td className="py-4 px-4 text-right font-bold text-[#ffd700]">₹{order.grandTotal?.toLocaleString()}</td>
-                          <td className="py-4 px-4 text-right font-bold text-red-400">₹{order.balanceDue?.toLocaleString()}</td>
-                          
-                          <td className="py-4 px-4 text-center">
-                            {order.status === 'finalized' ? (
-                              <span className="inline-flex items-center gap-1 badge-green text-[10px] font-bold px-2.5 py-1 rounded-full">
-                                <CheckCircle size={11} />
-                                Original Bill Ready
-                              </span>
-                            ) : order.status === 'rejected' ? (
-                              <div className="flex flex-col items-center gap-0.5">
-                                <span className="inline-flex items-center gap-1 badge-red text-[10px] font-bold px-2.5 py-1 rounded-full">
-                                  <AlertCircle size={11} />
-                                  Rejected by Workshop
-                                </span>
-                                {order.rejectionReason && (
-                                  <span className="text-[9px] text-red-300 max-w-[120px] truncate" title={order.rejectionReason}>
-                                    {order.rejectionReason}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 badge-gold text-[10px] font-bold px-2.5 py-1 rounded-full">
-                                <Clock size={11} />
-                                Pending Review
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="py-4 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {/* Checking bill download */}
+              {billSummary.items.length === 0 ? (
+                <div className="text-center py-12 text-[#cbd5e1]">
+                  <p className="font-cinzel text-base text-[#ffd700] mb-2">No Idols Selected</p>
+                  <p className="text-xs mb-6">Choose Ganesha idols from the catalog gallery to generate a bill.</p>
+                  <button
+                    onClick={() => setActiveTab('catalog')}
+                    className="btn-gold px-6 py-2.5 text-xs font-bold"
+                  >
+                    Browse Ganesha Catalog →
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-[#ffd700]/20 text-[#ffd700] font-cinzel text-[11px] uppercase tracking-wider">
+                        <th className="py-3 px-2">#</th>
+                        <th className="py-3 px-3">Ganesha Model</th>
+                        <th className="py-3 px-3">Size</th>
+                        <th className="py-3 px-3 text-right">Rate</th>
+                        <th className="py-3 px-3 text-center">Quantity</th>
+                        <th className="py-3 px-3 text-right">Line Total</th>
+                        <th className="py-3 px-2 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#ffd700]/10 font-medium">
+                      {billSummary.items.map((item, index) => (
+                        <tr key={item.itemId} className="hover:bg-white/5">
+                          <td className="py-3 px-2 text-gray-400">{index + 1}</td>
+                          <td className="py-3 px-3 font-semibold text-[#ffd700]">{item.name}</td>
+                          <td className="py-3 px-3 text-[#cbd5e1]">{item.size}</td>
+                          <td className="py-3 px-3 text-right">₹{item.rate.toLocaleString('en-IN')}</td>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center justify-center gap-1.5">
                               <button
-                                onClick={() => downloadLocalCheckingBill(order)}
-                                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#ffebc2] bg-white/10 hover:bg-white/20 border border-[#ffd700]/20 px-2.5 py-1.5 rounded-lg transition-all"
-                                title="Download Checking Bill PDF"
+                                onClick={() => adjustQuantity(item.itemId, -1)}
+                                className="w-6 h-6 rounded bg-black/40 hover:bg-[#ffd700]/20 text-[#ffd700] flex items-center justify-center font-bold"
                               >
-                                <Download size={12} />
-                                <span>Checking</span>
+                                -
                               </button>
-
-                              {/* Original bill download (only finalized) */}
+                              <span className="w-8 text-center font-bold text-[#ffd700]">
+                                {item.quantity}
+                              </span>
                               <button
-                                onClick={() => downloadServerOriginalBill(order.id)}
-                                disabled={order.status !== 'finalized'}
-                                className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg transition-all ${
-                                  order.status === 'finalized'
-                                    ? 'btn-gold shadow-md'
-                                    : 'bg-white/5 text-gray-500 border border-white/5 cursor-not-allowed'
-                                }`}
-                                title={order.status === 'finalized' ? "Download Original Final Bill PDF" : "Original Bill pending approval"}
+                                onClick={() => adjustQuantity(item.itemId, 1)}
+                                className="w-6 h-6 rounded bg-black/40 hover:bg-[#ffd700]/20 text-[#ffd700] flex items-center justify-center font-bold"
                               >
-                                <Download size={12} />
-                                <span>Original</span>
+                                +
                               </button>
                             </div>
                           </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* VIEW BILL PREVIEW MODAL */}
-      {isPreviewOpen && previewOrderData && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex justify-center items-start p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#200104] border-2 border-[#ffd700] rounded-2xl overflow-hidden shadow-2xl animate-fadeIn relative my-8 text-white">
-            
-            {/* Modal Header */}
-            <div className="bg-[#4a0e17] px-6 py-4 flex justify-between items-center border-b border-[#ffd700]/40">
-              <h3 className="font-cinzel font-bold text-sm tracking-widest uppercase flex items-center gap-2 text-gold-gradient">
-                <FileText size={16} className="text-[#ffd700]" />
-                <span>On-Screen Bill Preview</span>
-              </h3>
-              <button
-                onClick={() => setIsPreviewOpen(false)}
-                className="text-[#ffd700] hover:text-white font-bold text-sm uppercase tracking-wider"
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            {/* Bill Paper Preview Area */}
-            <div className="p-6 md:p-8 bg-[#1a0003] border-b border-[#ffd700]/20 relative">
-              <div className="relative z-10 border border-[#ffd700]/30 p-6 rounded-xl bg-black/40">
-                {/* Header */}
-                <div className="flex justify-between items-start border-b border-[#ffd700]/30 pb-4 mb-4">
-                  <div>
-                    <h2 className="font-cinzel text-lg font-extrabold text-[#ffd700]">G.KAMAL GANESHA WORKS</h2>
-                    <p className="text-[10px] text-orange-gradient font-bold tracking-widest uppercase">PREMIUM CLAY IDOL MANUFACTURER</p>
-                  </div>
-                  <div className="text-right text-xs text-[#ffebc2]">
-                    <p className="font-bold text-white">Saraipalaya, Thanisandra Main Road</p>
-                    <p className="text-gray-400">Vidyasagar, Bangalore - 560077</p>
-                    <p className="text-[#ffd700] font-mono font-bold">9739142445 / 8792044625</p>
-                  </div>
-                </div>
-
-                {/* Customer Info */}
-                <div className="grid grid-cols-2 text-xs gap-4 mb-6 text-[#ffebc2]">
-                  <div>
-                    <h4 className="font-cinzel font-bold text-[#ffd700] uppercase mb-1">To Customer:</h4>
-                    <p className="font-semibold text-white">{previewOrderData.customerDetails.name}</p>
-                    <p className="text-gray-400">Phone: {previewOrderData.customerDetails.mobile}</p>
-                    <p className="text-gray-400">Address: {previewOrderData.customerDetails.address}</p>
-                  </div>
-                  <div className="text-right">
-                    <h4 className="font-cinzel font-bold text-[#ffd700] uppercase mb-1">Bill Reference:</h4>
-                    <p className="font-semibold text-white">Order ID: #PREVIEW</p>
-                    <p className="text-gray-400">Date: {new Date().toLocaleDateString()}</p>
-                    <p className="text-[#ff6a00] font-bold uppercase">Status: CHECKING BILL</p>
-                  </div>
-                </div>
-
-                {/* Items Table */}
-                <div className="mb-6">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-[#4a0e17] text-[#ffd700] font-cinzel font-bold">
-                        <th className="p-2.5 rounded-l">Item</th>
-                        <th className="p-2.5">Size</th>
-                        <th className="p-2.5 text-right">Rate</th>
-                        <th className="p-2.5 text-right">Qty</th>
-                        <th className="p-2.5 text-right rounded-r">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#ffd700]/10">
-                      {previewOrderData.items.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-white/5">
-                          <td className="p-2.5 font-semibold text-[#ffebc2]">{item.name}</td>
-                          <td className="p-2.5 text-gray-300">{item.size}</td>
-                          <td className="p-2.5 text-right text-gray-300">₹{item.rate}</td>
-                          <td className="p-2.5 text-right text-gray-300">{item.quantity}</td>
-                          <td className="p-2.5 text-right font-bold text-[#ffd700]">₹{item.lineTotal?.toLocaleString()}</td>
+                          <td className="py-3 px-3 text-right font-bold text-gold-gradient">
+                            ₹{item.lineTotal.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            <button
+                              onClick={() => removeItem(item.itemId)}
+                              className="text-red-400 hover:text-red-300 p-1"
+                              title="Remove item"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
 
-                {/* Totals */}
-                <div className="flex flex-col items-end gap-1.5 pt-2 border-t border-[#ffd700]/20 text-xs text-[#ffebc2]">
-                  <div className="flex justify-between w-52 border-b border-[#ffd700]/15 pb-1">
-                    <span>Grand Total:</span>
-                    <span className="font-bold text-[#ffd700]">₹{previewOrderData.grandTotal?.toLocaleString()}</span>
+            {/* Bill Summary & Download Section */}
+            {billSummary.items.length > 0 && (
+              <div className="glass-panel p-6 sm:p-8 border-2 border-[#ffd700]/40 shadow-2xl">
+                <h3 className="font-cinzel text-base sm:text-lg font-bold text-[#ffd700] mb-6 flex items-center gap-2">
+                  <FileText size={18} className="text-[#ff6a00]" />
+                  <span>3. Bill Financials & Download</span>
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Left: Advance Payment Setup */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#ffebc2] mb-1.5 uppercase tracking-wider">
+                        Advance Payment Received (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={billSummary.grandTotal}
+                        value={advancePayment}
+                        onChange={(e) => setAdvancePayment(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full input-glass p-3 text-sm font-bold text-[#ffd700]"
+                        placeholder="Enter advance amount"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setAdvancePayment(0)}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] text-[#cbd5e1]"
+                      >
+                        ₹0 (No Advance)
+                      </button>
+                      <button
+                        onClick={() => setAdvancePayment(Math.round(billSummary.grandTotal * 0.25))}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] text-[#ffd700]"
+                      >
+                        25% (₹{Math.round(billSummary.grandTotal * 0.25).toLocaleString('en-IN')})
+                      </button>
+                      <button
+                        onClick={() => setAdvancePayment(Math.round(billSummary.grandTotal * 0.50))}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] text-[#ffd700]"
+                      >
+                        50% (₹{Math.round(billSummary.grandTotal * 0.50).toLocaleString('en-IN')})
+                      </button>
+                      <button
+                        onClick={() => setAdvancePayment(billSummary.grandTotal)}
+                        className="px-2.5 py-1 rounded-lg bg-[#ffd700]/20 hover:bg-[#ffd700]/30 text-[11px] text-[#ffd700] font-bold"
+                      >
+                        100% Full Paid
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-gray-400 italic">
+                      * Watermark "CHECKING BILL" will be embedded automatically across the entire bill document.
+                    </p>
                   </div>
-                  <div className="flex justify-between w-52 border-b border-[#ffd700]/15 pb-1">
-                    <span>Advance Payment:</span>
-                    <span className="font-semibold text-emerald-400">- ₹{previewOrderData.advancePayment?.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between w-52 bg-red-950/60 border border-red-500/40 text-red-200 font-bold p-2 rounded-lg">
-                    <span>Balance Due:</span>
-                    <span>₹{previewOrderData.balanceDue?.toLocaleString()}</span>
+
+                  {/* Right: Calculations & Action Buttons */}
+                  <div className="bg-black/40 border border-[#ffd700]/25 rounded-2xl p-6 space-y-3">
+                    <div className="flex justify-between items-center text-xs text-gray-300">
+                      <span>Total Idols Selected:</span>
+                      <strong className="text-white">{billSummary.totalUnits} Units</strong>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm font-bold border-t border-[#ffd700]/15 pt-2">
+                      <span className="text-[#ffebc2]">Grand Total:</span>
+                      <span className="text-gold-gradient text-lg font-cinzel">
+                        ₹{billSummary.grandTotal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs text-gray-300">
+                      <span>Advance Paid:</span>
+                      <span className="text-emerald-400 font-bold">
+                        ₹{billSummary.advancePayment.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm font-bold border-t border-[#ffd700]/15 pt-2">
+                      <span className="text-red-300">Balance Due:</span>
+                      <span className="text-red-400 text-lg font-cinzel font-black">
+                        ₹{billSummary.balanceDue.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={handlePreviewBill}
+                        className="flex-1 btn-outline-gold py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+                      >
+                        <Eye size={15} />
+                        <span>Preview Bill</span>
+                      </button>
+                      <button
+                        onClick={handleDownloadCheckingBill}
+                        className="flex-1 btn-gold py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl hover:scale-102 transition-transform"
+                      >
+                        <Download size={15} />
+                        <span>Download PDF</span>
+                      </button>
+                    </div>
+
+                    {/* WhatsApp Direct Share Button */}
+                    <button
+                      onClick={() => shareOnWhatsApp()}
+                      className="w-full mt-3 bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl hover:scale-102 transition-transform"
+                    >
+                      <MessageCircle size={17} className="text-black" />
+                      <span>Share on WhatsApp (8792044625)</span>
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+          </div>
+        )}
 
-            {/* Modal Actions */}
-            <div className="bg-[#2b0308] px-6 py-4 flex flex-wrap justify-between items-center gap-3 border-t border-[#ffd700]/20">
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(false)}
-                className="btn-outline-gold px-4 py-2.5 text-xs"
-              >
-                ← Back & Modify
-              </button>
-
-              <div className="flex gap-2.5">
+        {/* MODAL: BILL PREVIEW MODAL */}
+        {isPreviewOpen && previewBillData && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+            <div className="glass-panel border-2 border-[#ffd700]/60 max-w-2xl w-full p-6 sm:p-8 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto relative">
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-start border-b border-[#ffd700]/30 pb-4 mb-5">
+                <div>
+                  <h3 className="font-cinzel text-lg font-extrabold text-gold-gradient">
+                    ✦ Checking Bill Preview ✦
+                  </h3>
+                  <p className="text-[11px] text-[#cbd5e1]">
+                    G.Kamal Ganesha Works • Bangalore
+                  </p>
+                </div>
                 <button
-                  type="button"
-                  onClick={() => {
-                    const tempOrder = {
-                      id: 'PREVIEW',
-                      customerDetails: previewOrderData.customerDetails,
-                      items: previewOrderData.items,
-                      grandTotal: previewOrderData.grandTotal,
-                      advancePayment: previewOrderData.advancePayment,
-                      balanceDue: previewOrderData.balanceDue,
-                      status: 'pending_review'
-                    };
-                    const doc = generateBillPDF(tempOrder, 'CHECKING BILL', true);
-                    downloadPDFBlob(doc, `Checking_Bill_${previewOrderData.customerDetails.name || 'Order'}.pdf`);
-                  }}
-                  className="px-4 py-2.5 text-xs font-cinzel font-bold uppercase tracking-wider border border-[#ffd700] text-[#ffd700] bg-[#ffd700]/10 hover:bg-[#ffd700]/20 rounded-xl flex items-center gap-1.5 transition-all"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="text-gray-400 hover:text-white p-1 rounded-lg"
                 >
-                  <Download size={14} />
-                  <span>Download Checking PDF</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFinalSubmit}
-                  disabled={loading}
-                  className="btn-gold px-6 py-2.5 text-xs flex items-center gap-1.5 shadow-xl disabled:opacity-50"
-                >
-                  {loading ? (
-                    <div className="w-4 h-4 border-2 border-[#1a0003] border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      <CheckCircle size={14} />
-                      <span>Submit Order to Workshop</span>
-                    </>
-                  )}
+                  ✕
                 </button>
               </div>
+
+              {/* Watermark Banner */}
+              <div className="mb-4 py-2 px-4 bg-amber-500/15 border border-amber-500/40 rounded-xl text-center">
+                <span className="font-cinzel text-xs font-bold text-[#ffd700] tracking-widest uppercase">
+                  WATERMARK: CHECKING BILL
+                </span>
+              </div>
+
+              {/* Customer & Bill Details */}
+              <div className="grid grid-cols-2 gap-4 bg-black/40 p-4 rounded-xl border border-[#ffd700]/20 mb-5 text-xs">
+                <div>
+                  <span className="block font-bold text-[#ffd700] uppercase text-[10px]">Billed To:</span>
+                  <p className="font-semibold text-white mt-0.5">{previewBillData.customerDetails.name}</p>
+                  <p className="text-gray-300">📞 {previewBillData.customerDetails.mobile}</p>
+                  <p className="text-gray-300">📍 {previewBillData.customerDetails.address}</p>
+                </div>
+                <div className="text-right">
+                  <span className="block font-bold text-[#ffd700] uppercase text-[10px]">Reference:</span>
+                  <p className="font-mono text-white mt-0.5">{previewBillData.id}</p>
+                  <p className="text-gray-300">Date: {new Date().toLocaleDateString('en-IN')}</p>
+                  <p className="text-amber-300 font-bold uppercase">{priceType} Tier</p>
+                </div>
+              </div>
+
+              {/* Line Items */}
+              <div className="overflow-x-auto mb-5">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-[#ffd700]/20 text-[#ffd700] font-cinzel text-[10px] uppercase">
+                      <th className="py-2 px-2">Item</th>
+                      <th className="py-2 px-2">Size</th>
+                      <th className="py-2 px-2 text-right">Rate</th>
+                      <th className="py-2 px-2 text-center">Qty</th>
+                      <th className="py-2 px-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {previewBillData.items.map((it, idx) => (
+                      <tr key={idx}>
+                        <td className="py-2 px-2 text-white font-medium">{it.name}</td>
+                        <td className="py-2 px-2 text-gray-300">{it.size}</td>
+                        <td className="py-2 px-2 text-right text-gray-300">₹{it.rate.toLocaleString('en-IN')}</td>
+                        <td className="py-2 px-2 text-center text-[#ffd700] font-bold">{it.quantity}</td>
+                        <td className="py-2 px-2 text-right text-gold-gradient font-bold">₹{it.lineTotal.toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="bg-black/60 p-4 rounded-xl border border-[#ffd700]/30 space-y-1.5 text-xs mb-6">
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Grand Total:</span>
+                  <span className="font-bold text-white">₹{previewBillData.grandTotal.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Advance Paid:</span>
+                  <span className="font-bold text-emerald-400">₹{previewBillData.advancePayment.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold border-t border-white/10 pt-1.5">
+                  <span className="text-red-300">Balance Due:</span>
+                  <span className="text-red-400 font-cinzel font-black">₹{previewBillData.balanceDue.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex flex-wrap justify-end gap-3">
+                <button
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="btn-outline-gold px-4 py-2 text-xs font-semibold"
+                >
+                  Close Preview
+                </button>
+                <button
+                  onClick={() => shareOnWhatsApp(previewBillData)}
+                  className="bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold px-4 py-2 text-xs flex items-center gap-1.5 rounded-xl shadow-lg"
+                >
+                  <MessageCircle size={15} />
+                  <span>Send on WhatsApp</span>
+                </button>
+                <button
+                  onClick={handleDownloadCheckingBill}
+                  className="btn-gold px-5 py-2 text-xs flex items-center gap-1.5 font-bold shadow-xl"
+                >
+                  <Download size={14} />
+                  <span>Download PDF</span>
+                </button>
+              </div>
+
             </div>
           </div>
+        )}
+
+        {/* Floating WhatsApp Quick Action Button directed to 8792044625 */}
+        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
+          <button
+            onClick={() => shareOnWhatsApp()}
+            className="group flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-black font-extrabold px-4 py-3 rounded-full shadow-2xl transition-all duration-300 hover:scale-108 border-2 border-white/40"
+            title="Chat or Send Bill on WhatsApp to 8792044625"
+          >
+            <MessageCircle size={20} className="text-black" />
+            <span className="text-xs tracking-wider uppercase font-black">
+              {billSummary.totalUnits > 0 ? 'Send Bill (8792044625)' : 'WhatsApp (8792044625)'}
+            </span>
+          </button>
         </div>
-      )}
+
+      </main>
 
       <Footer />
     </div>

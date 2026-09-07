@@ -3,7 +3,13 @@ const router = express.Router();
 const db = require('../db');
 const requireRole = require('../middleware/requireRole');
 
-// All routes here require the 'customer' role
+// Public route: Anyone can view the Ganesha catalog without logging in
+router.get('/catalog', (req, res) => {
+  const catalog = db.getCollection('ganesha_items') || [];
+  res.json(catalog);
+});
+
+// All routes below require the 'customer' role
 router.use(requireRole('customer'));
 
 // Get logged-in customer's profile details

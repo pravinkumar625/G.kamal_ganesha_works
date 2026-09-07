@@ -116,11 +116,11 @@ router.post('/login/admin', (req, res) => {
     return res.status(401).json({ error: 'Invalid admin credentials' });
   }
 
-  // Generate JWT token
+  // Generate long-lived persistent JWT token (1 year valid until explicit logout)
   const token = jwt.sign(
     { id: admin.id, mobile: admin.mobile, role: 'admin', name: admin.name },
     JWT_SECRET,
-    { expiresIn: '24h' }
+    { expiresIn: '365d' }
   );
 
   res.json({

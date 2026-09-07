@@ -81,6 +81,12 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Serve API routes
+// Public catalog endpoint for any visitor without authentication
+app.get('/api/catalog', (req, res) => {
+  const catalog = db.getCollection('ganesha_items') || [];
+  res.json(catalog);
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/customer', customerRoutes);
 app.use('/api/admin', adminRoutes);

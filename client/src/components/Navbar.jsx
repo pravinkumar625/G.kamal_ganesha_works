@@ -79,42 +79,18 @@ const Navbar = () => {
             <span>Home</span>
           </button>
 
-          {/* Customer links */}
-          {customerToken ? (
-            <>
-              <button
-                onClick={() => navigate('/customer/dashboard')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  isActive('/customer/dashboard') 
-                    ? 'text-[#ffd700] bg-[#ffd700]/10 border border-[#ffd700]/30' 
-                    : 'text-[#ffebc2] hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <User size={14} className="text-[#ffd700]" />
-                <span>My Portal ({customerUser?.name || 'Customer'})</span>
-              </button>
-              <button
-                onClick={handleCustomerLogout}
-                className="flex items-center gap-1 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-all font-bold"
-                title="Customer Logout"
-              >
-                <LogOut size={13} />
-                <span>Exit</span>
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => navigate('/login/customer')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-                isActive('/login/customer') 
-                  ? 'btn-gold shadow-md' 
-                  : 'btn-outline-gold'
-              }`}
-            >
-              <User size={14} />
-              <span>Customer Portal</span>
-            </button>
-          )}
+          {/* Direct Catalog & Checking Bill Generator for all customers */}
+          <button
+            onClick={() => navigate('/catalog')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+              isActive('/catalog') || isActive('/customer/dashboard')
+                ? 'btn-gold shadow-md' 
+                : 'btn-outline-gold'
+            }`}
+          >
+            <Sparkles size={14} className="text-[#ffd700]" />
+            <span>✦ Catalog & Bill Generator</span>
+          </button>
 
           {/* Admin links */}
           {adminToken ? (
@@ -149,7 +125,7 @@ const Navbar = () => {
               }`}
             >
               <ShieldAlert size={13} />
-              <span>Admin</span>
+              <span>Admin Login</span>
             </button>
           )}
         </div>
@@ -177,32 +153,15 @@ const Navbar = () => {
             <span>Home</span>
           </button>
 
-          {customerToken ? (
-            <>
-              <button
-                onClick={() => { navigate('/customer/dashboard'); setMobileMenuOpen(false); }}
-                className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold uppercase text-[#ffd700] bg-[#ffd700]/10"
-              >
-                <User size={16} />
-                <span>My Portal ({customerUser?.name || 'Customer'})</span>
-              </button>
-              <button
-                onClick={handleCustomerLogout}
-                className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold uppercase text-red-400"
-              >
-                <LogOut size={16} />
-                <span>Customer Exit</span>
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => { navigate('/login/customer'); setMobileMenuOpen(false); }}
-              className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold uppercase btn-gold text-[#1a0003]"
-            >
-              <User size={16} />
-              <span>Customer Portal</span>
-            </button>
-          )}
+          <button
+            onClick={() => { navigate('/catalog'); setMobileMenuOpen(false); }}
+            className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold uppercase ${
+              isActive('/catalog') || isActive('/customer/dashboard') ? 'btn-gold text-[#1a0003]' : 'btn-outline-gold'
+            }`}
+          >
+            <Sparkles size={16} />
+            <span>✦ Catalog & Bill Generator</span>
+          </button>
 
           {adminToken ? (
             <>
@@ -227,7 +186,7 @@ const Navbar = () => {
               className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold uppercase text-[#ffebc2] hover:text-[#ffd700]"
             >
               <ShieldAlert size={16} />
-              <span>Admin Portal</span>
+              <span>Admin Login</span>
             </button>
           )}
         </div>

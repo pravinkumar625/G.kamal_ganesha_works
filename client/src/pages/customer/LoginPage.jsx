@@ -143,7 +143,7 @@ const CustomerLoginPage = () => {
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   required
-                  placeholder="e.g. 9739142445"
+                  placeholder="Enter Mobile Number"
                   className="w-full pl-10 pr-4 py-3 input-glass text-sm font-medium"
                 />
               </div>

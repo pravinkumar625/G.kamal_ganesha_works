@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// Ensure DNS resolution succeeds for MongoDB Atlas SRV connection strings
+// Ensure DNS resolution succeeds for MongoDB Atlas SRV connection strings across all environments
 try {
   const dns = require('dns');
   dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
@@ -21,6 +21,8 @@ let memoryCache = null;
 let mongoClient = null;
 let mongoDb = null;
 let isConnectedToMongo = false;
+let isStorageLoaded = false;
+let loadPromise = null;
 
 function getMongoUri() {
   return process.env.MONGODB_URI || 
@@ -55,7 +57,26 @@ async function getMongoDb() {
 
 // Default initial database state
 const defaultData = {
-  users: [],
+  users: [
+    {
+      id: "mtgp4ts005wdw",
+      createdAt: "2026-08-31T03:46:12.288Z",
+      name: "G. Kamal",
+      mobile: "9739142445",
+      password: "$2a$10$ibFqCERWuZENhW9AKxcKre3PvvIGBIrd0RCXGfW4i.cMh6J7u6Yde",
+      role: "admin",
+      email: "kamal@ganeshaworks.com"
+    },
+    {
+      id: "mtgp4tuufashc",
+      createdAt: "2026-08-31T03:46:12.390Z",
+      name: "Pravin Kumar",
+      mobile: "8792044625",
+      password: "$2a$10$yGP4R3/kEJYwZVoB2x1ZJOkwh04TvcZs8AFaz8Ap49kTjAK7n/8W6",
+      role: "admin",
+      email: "pravin@ganeshaworks.com"
+    }
+  ],
   ganesha_items: [
     { id: '1', name: 'Clay Bal Ganesha', size: '1/2 ft', retailPrice: 450, wholesalePrice: 350 },
     { id: '2', name: 'Clay Bal Ganesha', size: '1 ft', retailPrice: 900, wholesalePrice: 750 },
@@ -72,9 +93,9 @@ const defaultData = {
   }
 };
 
-// Ensure database directory and file exist, load into memoryCache
+// Initialize DB from local file if needed
 function initDB() {
-  if (memoryCache) return memoryCache;
+  if (memoryCache && isStorageLoaded) return memoryCache;
 
   try {
     const dir = path.dirname(DB_FILE);
@@ -118,7 +139,7 @@ function readData() {
   return memoryCache;
 }
 
-// Write database to disk safely (and sync to MongoDB / Vercel KV if available)
+// Write database to memory, local disk, and sync to MongoDB Atlas
 async function writeData(data) {
   memoryCache = data;
   try {
@@ -136,7 +157,7 @@ async function writeData(data) {
       } catch (e) { }
     }
 
-    // Save to MongoDB Atlas if connected (AWAIT sync to prevent serverless container from freezing before write)
+    // Save to MongoDB Atlas if connected (AWAIT sync to prevent serverless container from freezing)
     const uri = getMongoUri();
     if (uri) {
       await syncToMongo(data);
@@ -163,7 +184,7 @@ async function writeData(data) {
   }
 }
 
-// Sync to MongoDB Atlas
+// Sync current data to MongoDB Atlas
 async function syncToMongo(data) {
   try {
     const dbInstance = await getMongoDb();
@@ -174,82 +195,80 @@ async function syncToMongo(data) {
         { $set: { data, updatedAt: new Date() } },
         { upsert: true }
       );
+      isConnectedToMongo = true;
     }
   } catch (e) {
-    console.error('Error syncing to MongoDB Atlas:', e);
+    isConnectedToMongo = false;
+    console.error('Error syncing to MongoDB Atlas:', e.message || e);
   }
 }
 
-// Load from MongoDB Atlas
+// Load database from MongoDB Atlas
 async function loadFromMongo() {
   try {
     const dbInstance = await getMongoDb();
     if (dbInstance) {
       const col = dbInstance.collection('store');
       const doc = await col.findOne({ _id: 'ganesha_main_db' });
-      if (doc && doc.data && doc.data.users) {
+      if (doc && doc.data && Array.isArray(doc.data.users)) {
         memoryCache = doc.data;
-        console.log('Database loaded successfully from MongoDB Atlas!');
+        isStorageLoaded = true;
+        isConnectedToMongo = true;
+        console.log(`Database loaded successfully from MongoDB Atlas! (${memoryCache.orders?.length || 0} orders, ${memoryCache.users?.length || 0} users)`);
+        
+        // Also persist to local file for fast fallback
+        try {
+          fs.writeFileSync(DB_FILE, JSON.stringify(memoryCache, null, 2), 'utf-8');
+        } catch (e) { }
+        
         return memoryCache;
       } else {
+        // Document does not exist in Atlas yet, initialize it
         const initial = memoryCache || initDB();
         await col.updateOne(
           { _id: 'ganesha_main_db' },
           { $set: { data: initial, updatedAt: new Date() } },
           { upsert: true }
         );
+        isStorageLoaded = true;
+        isConnectedToMongo = true;
+        return memoryCache;
       }
     }
   } catch (e) {
-    console.error('Error loading from MongoDB Atlas:', e);
+    isConnectedToMongo = false;
+    console.error('Error loading from MongoDB Atlas:', e.message || e);
   }
   return memoryCache || initDB();
 }
 
-// Asynchronously load database from MongoDB or Vercel KV on startup
-let storageLoadingPromise = null;
-function loadFromStorage() {
-  if (storageLoadingPromise) return storageLoadingPromise;
+// Asynchronously load database from MongoDB on startup or request
+function loadFromStorage(force = false) {
+  if (isStorageLoaded && !force && memoryCache) {
+    return Promise.resolve(memoryCache);
+  }
+
+  if (loadPromise && !force) {
+    return loadPromise;
+  }
 
   if (getMongoUri()) {
-    console.log('Detected MongoDB Storage URI. Connecting to MongoDB Atlas...');
-    storageLoadingPromise = loadFromMongo();
-  } else if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    console.log('Detected Vercel KV. Initiating DB restore from KV...');
-    storageLoadingPromise = fetch(process.env.KV_REST_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.KV_REST_API_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(['GET', 'ganesha_db'])
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`KV REST response code ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        if (data && data.result) {
-          const parsed = JSON.parse(data.result);
-          if (parsed && typeof parsed === 'object' && parsed.users) {
-            memoryCache = parsed;
-            console.log('Database loaded successfully from Vercel KV store!');
-          }
-        }
-        return memoryCache || initDB();
-      })
-      .catch(err => {
-        console.error('Failed to load from Vercel KV, using local files:', err);
-        return memoryCache || initDB();
-      });
+    loadPromise = loadFromMongo().then(res => {
+      loadPromise = null;
+      return res;
+    });
   } else {
-    storageLoadingPromise = Promise.resolve(memoryCache || initDB());
+    isStorageLoaded = true;
+    loadPromise = null;
+    return Promise.resolve(memoryCache || initDB());
   }
-  return storageLoadingPromise;
+
+  return loadPromise;
 }
 
-// Call on startup
-if (process.env.MONGODB_URI || (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)) {
+// Initial boot load
+initDB();
+if (getMongoUri()) {
   loadFromStorage();
 }
 
@@ -329,18 +348,26 @@ const db = {
     return items[index];
   },
 
+  // 100% COMPLETE HARD DELETE (Removes item permanently from memory, file, and MongoDB Atlas)
   delete(collectionName, id) {
-    const items = this.getCollection(collectionName);
-    if (!id) return false;
+    const data = readData();
+    if (!data[collectionName] || !Array.isArray(data[collectionName]) || !id) return false;
+    
     const cleanId = decodeURIComponent(String(id)).replace(/^#/, '').trim().toLowerCase();
-    const index = items.findIndex(item => 
-      item.id === id || (item.id && String(item.id).replace(/^#/, '').trim().toLowerCase() === cleanId)
-    );
-    if (index === -1) return false;
+    const initialLen = data[collectionName].length;
+    
+    // Purge item completely from array
+    data[collectionName] = data[collectionName].filter(item => {
+      if (!item || !item.id) return false;
+      const itemId = String(item.id).replace(/^#/, '').trim().toLowerCase();
+      return item.id !== id && itemId !== cleanId;
+    });
 
-    items.splice(index, 1);
-    this.saveCollection(collectionName, items);
-    return true;
+    const deleted = data[collectionName].length < initialLen;
+    if (deleted) {
+      writeData(data);
+    }
+    return deleted;
   },
 
   // Settings specific helpers

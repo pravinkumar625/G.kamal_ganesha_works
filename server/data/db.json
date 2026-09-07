@@ -41,6 +41,16 @@
       "customerType": "retail",
       "role": "customer",
       "updatedAt": "2026-09-01T07:40:38.310Z"
+    },
+    {
+      "id": "mti6iaw136jm8",
+      "createdAt": "2026-09-01T14:01:38.052Z",
+      "name": "New Customer",
+      "mobile": "8792044625",
+      "email": "",
+      "address": "",
+      "customerType": "wholesale",
+      "role": "customer"
     }
   ],
   "ganesha_items": [

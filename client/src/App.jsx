@@ -10,12 +10,6 @@ import CustomerDashboard from './pages/customer/Dashboard';
 import AdminLoginPage from './pages/admin/LoginPage';
 import AdminDashboard from './pages/admin/Dashboard';
 
-// Route protection for Customers
-const CustomerRoute = ({ children }) => {
-  const token = localStorage.getItem('customerToken');
-  return token ? children : <Navigate to="/login/customer" replace />;
-};
-
 // Route protection for Admins
 const AdminRoute = ({ children }) => {
   const token = localStorage.getItem('adminToken');
@@ -38,16 +32,11 @@ function App() {
             {/* Public Welcome Front Page */}
             <Route path="/" element={<LandingPage />} />
 
-            {/* Customer Authentication & Dashboard */}
-            <Route path="/login/customer" element={<CustomerLoginPage />} />
-            <Route
-              path="/customer/dashboard"
-              element={
-                <CustomerRoute>
-                  <CustomerDashboard />
-                </CustomerRoute>
-              }
-            />
+            {/* Public Ganesha Catalog & Instant Checking Bill Generator (No Login Required) */}
+            <Route path="/catalog" element={<CustomerDashboard />} />
+            <Route path="/bill" element={<CustomerDashboard />} />
+            <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+            <Route path="/login/customer" element={<Navigate to="/catalog" replace />} />
 
             {/* Admin Authentication & Control Dashboard */}
             <Route path="/login/admin" element={<AdminLoginPage />} />

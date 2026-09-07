@@ -50,8 +50,8 @@ const LandingPage = () => {
     },
     {
       icon: ShieldCheck,
-      title: 'Instant Digital Bill & SMS',
-      desc: 'Transparent order tracking, PDF bill generation, and automated status SMS.'
+      title: 'Instant Checking Bill (PDF)',
+      desc: 'Transparent retail & wholesale pricing calculation and instant printable Checking Bill PDF.'
     }
   ];
 
@@ -90,15 +90,15 @@ const LandingPage = () => {
           </h2>
           
           <p className="text-sm sm:text-base text-[#ffebc2] leading-relaxed mb-8 max-w-xl mx-auto opacity-95 font-medium">
-            Explore our handcrafted catalog, view transparent retail & wholesale pricing, configure advance payments, and receive automated digital invoices with SMS confirmation.
+            Explore our handcrafted catalog, view transparent retail & wholesale pricing, configure advance payments, and generate instant Checking Bills in PDF format.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
             <button
-              onClick={() => navigate('/login/customer')}
-              className="w-full sm:w-auto btn-gold px-8 py-4 text-sm flex items-center justify-center gap-2 shadow-xl hover:scale-105 transition-transform"
+              onClick={() => navigate('/catalog')}
+              className="w-full sm:w-auto btn-gold px-8 py-4 text-sm flex items-center justify-center gap-2 shadow-xl hover:scale-105 transition-transform font-bold"
             >
-              <span>Enter Customer Portal</span>
+              <span>✦ View Catalog & Generate Bill</span>
               <ArrowRight size={16} />
             </button>
             
@@ -106,7 +106,7 @@ const LandingPage = () => {
               onClick={() => navigate('/login/admin')}
               className="w-full sm:w-auto btn-outline-gold px-8 py-4 text-sm flex items-center justify-center gap-2 hover:scale-105 transition-transform"
             >
-              <span>Admin Management</span>
+              <span>Admin Portal</span>
             </button>
             
             <MapLocationLink className="w-full sm:w-auto" />
