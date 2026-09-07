@@ -19,7 +19,10 @@ import {
   Trash2,
   ArrowRight,
   Printer,
-  MessageCircle
+  MessageCircle,
+  Layers,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { generateBillPDF, downloadPDFBlob } from '../../utils/pdfGenerator';
 
@@ -30,9 +33,8 @@ const CustomerDashboard = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Pricing mode: Wholesale exclusively
-  const priceType = 'wholesale';
+  const [selectedCategory, setSelectedCategory] = useState('ALL'); // 'ALL' | 'GANESHA' | 'GOWRI'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
   // Selected quantities: { [itemId]: quantity }
   const [orderQuantities, setOrderQuantities] = useState({});
@@ -134,16 +136,14 @@ const CustomerDashboard = () => {
     catalog.forEach(item => {
       const qty = orderQuantities[item.id] || 0;
       if (qty > 0) {
-        const rate = priceType === 'wholesale' 
-          ? Number(item.wholesalePrice || item.retailPrice || 0)
-          : Number(item.retailPrice || 0);
+        const rate = Number(item.price || item.wholesalePrice || item.retailPrice || 0);
         const lineTotal = rate * qty;
         grandTotal += lineTotal;
         totalUnits += qty;
         selectedItems.push({
           itemId: item.id,
           name: item.name,
-          size: item.size,
+          category: item.category || (item.name.toLowerCase().includes('gowri') ? 'GOWRI' : 'GANESHA'),
           rate,
           quantity: qty,
           lineTotal
@@ -188,7 +188,7 @@ const CustomerDashboard = () => {
   const handlePreviewBill = () => {
     setError('');
     if (billSummary.items.length === 0) {
-      setError('Please select at least one Ganesha idol from the catalog to generate a bill.');
+      setError('Please select at least one item from the catalog to generate a bill.');
       return;
     }
     const billData = buildBillObject();
@@ -200,7 +200,7 @@ const CustomerDashboard = () => {
   const handleDownloadCheckingBill = () => {
     setError('');
     if (billSummary.items.length === 0) {
-      setError('Please select at least one Ganesha idol from the catalog to generate a bill.');
+      setError('Please select at least one item from the catalog to generate a bill.');
       return;
     }
     try {
@@ -221,35 +221,34 @@ const CustomerDashboard = () => {
   const shareOnWhatsApp = (customBill = null) => {
     setError('');
     if (billSummary.items.length === 0) {
-      setError('Please select at least one Ganesha idol from the catalog to generate and share a bill.');
+      setError('Please select at least one item from the catalog to generate and share a bill.');
       return;
     }
     const data = customBill || previewBillData || buildBillObject();
     const phone = '918792044625';
 
     const itemsList = data.items.map((it, idx) => 
-      `${idx + 1}. *${it.name}* (${it.size}) - Qty: ${it.quantity} @ Rs.${it.rate.toLocaleString('en-IN')} = *Rs.${it.lineTotal.toLocaleString('en-IN')}*`
+      `${idx + 1}. *${it.name}* - Qty: ${it.quantity} @ Rs.${it.rate.toLocaleString('en-IN')} = *Rs.${it.lineTotal.toLocaleString('en-IN')}*`
     ).join('\n');
 
     const text = 
 `🙏 *G.KAMAL GANESHA WORKS*
-_Eco-Friendly Clay Idols • Bangalore_
+_Eco-Friendly Clay Idols • Bangalore - 560077_
 ----------------------------------
 📋 *CHECKING BILL / ESTIMATE*
 🔢 *Bill Ref:* #${data.id}
 📅 *Date:* ${new Date().toLocaleDateString('en-IN')}
-🏷️ *Pricing Tier:* ${priceType.toUpperCase()}
 
 👤 *CUSTOMER DETAILS:*
 • *Name:* ${data.customerDetails.name}
 • *Mobile:* ${data.customerDetails.mobile}
 • *Address:* ${data.customerDetails.address}
 
-📦 *SELECTED GANESHA IDOLS:*
+📦 *SELECTED ITEMS:*
 ${itemsList}
 
 💰 *FINANCIAL SUMMARY:*
-• *Total Idols:* ${billSummary.totalUnits} Units
+• *Total Units:* ${billSummary.totalUnits} Units
 • *Grand Total:* Rs.${data.grandTotal.toLocaleString('en-IN')}
 • *Advance Paid:* Rs.${data.advancePayment.toLocaleString('en-IN')}
 • *Balance Due:* Rs.${data.balanceDue.toLocaleString('en-IN')}
@@ -257,22 +256,30 @@ ${itemsList}
 📍 *Store Location:* Thanisandra Main Road, Vidyasagar, Bangalore - 560077
 📞 *Contact:* 9739142445 / 8792044625
 ----------------------------------
-_Generated from G.Kamal Ganesha Works Portal_`;
+_Generated from G.Kamal Ganesha Works Official Portal_`;
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
-  // Filter catalog items
+  // Filter catalog items by Category & Search query
   const filteredCatalog = catalog.filter(item => {
+    const itemCat = item.category ? item.category.toUpperCase() : (item.name.toLowerCase().includes('gowri') ? 'GOWRI' : 'GANESHA');
+    
+    if (selectedCategory !== 'ALL' && itemCat !== selectedCategory) {
+      return false;
+    }
+
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
       (item.name && item.name.toLowerCase().includes(query)) ||
-      (item.size && item.size.toLowerCase().includes(query)) ||
-      (item.description && item.description.toLowerCase().includes(query))
+      (item.category && item.category.toLowerCase().includes(query))
     );
   });
+
+  const ganeshaCount = catalog.filter(i => (i.category ? i.category.toUpperCase() === 'GANESHA' : !i.name.toLowerCase().includes('gowri'))).length;
+  const gowriCount = catalog.filter(i => (i.category ? i.category.toUpperCase() === 'GOWRI' : i.name.toLowerCase().includes('gowri'))).length;
 
   return (
     <div className="min-h-screen flex flex-col justify-between relative text-[#f7f9fa]">
@@ -292,7 +299,9 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-[#cbd5e1] font-medium">
-                <span className="text-[#ffd700]">📍 Thanisandra Main Road, Bangalore</span>
+                <span className="text-[#ffd700]">📍 Bangalore - 560077</span>
+                <span className="hidden sm:inline">•</span>
+                <span className="text-[#ffebc2]">📞 9739142445 / 8792044625</span>
                 <span className="hidden sm:inline">•</span>
                 <a
                   href="https://wa.me/918792044625?text=Hello%20G.Kamal%20Ganesha%20Works,%20I%20would%20like%20to%20enquire%20about%20Clay%20Ganesha%20Idols."
@@ -308,27 +317,26 @@ _Generated from G.Kamal Ganesha Works Portal_`;
             </div>
           </div>
 
-          {/* Wholesale Pricing Badge */}
           <div className="flex items-center gap-2 bg-[#ffd700]/15 border border-[#ffd700]/40 px-4 py-2.5 rounded-xl text-xs font-cinzel font-bold text-[#ffd700] uppercase tracking-wider shadow-lg">
             <Sparkles size={15} className="text-[#ff6a00]" />
-            <span>✦ Direct Wholesale Pricing ✦</span>
+            <span>✦ Official 2026 Price List ✦</span>
           </div>
         </div>
 
-        {/* Global Floating/Header Cart Status */}
+        {/* Floating Quick Summary Bar if items selected */}
         {billSummary.totalUnits > 0 && (
           <div className="glass-panel p-4 mb-6 border-2 border-[#ffd700]/50 bg-[#2d0007]/80 flex flex-col sm:flex-row justify-between items-center gap-3 animate-fadeIn shadow-xl">
             <div className="flex items-center gap-3 text-xs sm:text-sm">
               <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
               <span className="font-semibold text-[#ffebc2]">
-                <strong className="text-[#ffd700] text-base">{billSummary.totalUnits}</strong> {billSummary.totalUnits === 1 ? 'idol' : 'idols'} selected
+                <strong className="text-[#ffd700] text-base">{billSummary.totalUnits}</strong> {billSummary.totalUnits === 1 ? 'item' : 'items'} selected
               </span>
               <span className="text-gray-400">|</span>
               <span className="font-bold text-base text-[#ffd700]">
                 Grand Total: ₹{billSummary.grandTotal.toLocaleString('en-IN')}
               </span>
             </div>
-
+            
             <div className="flex flex-wrap items-center gap-2.5">
               {activeTab !== 'builder' && (
                 <button
@@ -361,13 +369,14 @@ _Generated from G.Kamal Ganesha Works Portal_`;
           </div>
         )}
 
-        {/* Dynamic Notifications */}
+        {/* Global Notifications */}
         {error && (
           <div className="mb-6 p-4 bg-red-950/80 border border-red-500/60 rounded-xl text-red-200 text-xs flex items-start gap-2.5 animate-fadeIn">
             <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
             <span>{error}</span>
           </div>
         )}
+
         {success && (
           <div className="mb-6 p-4 bg-emerald-950/80 border border-emerald-500/60 rounded-xl text-emerald-200 text-xs flex items-start gap-2.5 animate-fadeIn">
             <CheckCircle size={16} className="mt-0.5 shrink-0 text-emerald-400" />
@@ -386,9 +395,9 @@ _Generated from G.Kamal Ganesha Works Portal_`;
             }`}
           >
             <ShoppingBag size={16} />
-            <span>✦ Divine Ganesha Catalog ({catalog.length})</span>
+            <span>✦ Divine Catalog ({catalog.length})</span>
           </button>
-          
+
           <button
             onClick={() => setActiveTab('builder')}
             className={`flex items-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-cinzel font-bold uppercase tracking-wider border-b-2 transition-all ${
@@ -407,28 +416,54 @@ _Generated from G.Kamal Ganesha Works Portal_`;
           <div className="space-y-6">
             <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/20 shadow-2xl">
               
-              {/* Header with Search & Filter */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[#ffd700]/15 pb-4 mb-6 gap-4">
+              {/* Header with Category Filter, Search & View Mode Toggle */}
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-[#ffd700]/15 pb-5 mb-6 gap-4">
                 <div>
                   <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-gradient tracking-wide">
-                    Handcrafted Eco-Friendly Ganesha Idols
+                    G.Kamal Ganesha Works — 2026 Price List
                   </h3>
                   <p className="text-xs text-[#cbd5e1] mt-0.5">
-                    Select quantities for any idol model to calculate your instant Checking Bill.
+                    Select quantities for any idol to instantly compute your Checking Bill.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <div className="relative flex-grow sm:w-64">
+                {/* Search & View Toggle */}
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                  <div className="relative flex-grow sm:w-56">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ffd700]/60" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search idol name or size..."
+                      placeholder="Search idol name..."
                       className="w-full pl-9 pr-3 py-1.5 input-glass text-xs"
                     />
                   </div>
+
+                  {/* View Mode Switcher */}
+                  <div className="flex items-center bg-black/40 border border-[#ffd700]/30 rounded-xl p-0.5">
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`p-1.5 rounded-lg text-xs transition-all flex items-center gap-1 ${
+                        viewMode === 'grid' ? 'bg-[#ffd700] text-[#1a0003] font-bold' : 'text-[#cbd5e1] hover:text-white'
+                      }`}
+                      title="Grid View"
+                    >
+                      <LayoutGrid size={14} />
+                      <span className="hidden sm:inline text-[11px]">Cards</span>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('table')}
+                      className={`p-1.5 rounded-lg text-xs transition-all flex items-center gap-1 ${
+                        viewMode === 'table' ? 'bg-[#ffd700] text-[#1a0003] font-bold' : 'text-[#cbd5e1] hover:text-white'
+                      }`}
+                      title="Price List Table View"
+                    >
+                      <List size={14} />
+                      <span className="hidden sm:inline text-[11px]">Table</span>
+                    </button>
+                  </div>
+
                   <button
                     onClick={fetchCatalog}
                     className="btn-outline-gold p-2 text-xs"
@@ -438,6 +473,43 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                   </button>
                 </div>
               </div>
+
+              {/* Category Pills Filter */}
+              <div className="flex flex-wrap items-center gap-2.5 mb-6">
+                <button
+                  onClick={() => setSelectedCategory('ALL')}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                    selectedCategory === 'ALL'
+                      ? 'bg-[#ffd700] text-[#1a0003] shadow-lg scale-105'
+                      : 'bg-white/5 border border-[#ffd700]/25 text-[#cbd5e1] hover:text-white hover:border-[#ffd700]'
+                  }`}
+                >
+                  <Layers size={13} />
+                  <span>ALL IDOLS ({catalog.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedCategory('GANESHA')}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                    selectedCategory === 'GANESHA'
+                      ? 'bg-[#ffd700] text-[#1a0003] shadow-lg scale-105'
+                      : 'bg-white/5 border border-[#ffd700]/25 text-[#cbd5e1] hover:text-white hover:border-[#ffd700]'
+                  }`}
+                >
+                  <span>GANESHA ({ganeshaCount})</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedCategory('GOWRI')}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-cinzel font-bold transition-all flex items-center gap-1.5 ${
+                    selectedCategory === 'GOWRI'
+                      ? 'bg-[#ffd700] text-[#1a0003] shadow-lg scale-105'
+                      : 'bg-white/5 border border-[#ffd700]/25 text-[#cbd5e1] hover:text-white hover:border-[#ffd700]'
+                  }`}
+                >
+                  <span>GOWRI ({gowriCount})</span>
+                </button>
+              </div>
               
               {loading ? (
                 <div className="text-center text-[#ffd700] py-16 flex flex-col items-center gap-3">
@@ -446,20 +518,93 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                 </div>
               ) : filteredCatalog.length === 0 ? (
                 <div className="text-center text-[#cbd5e1] py-16">
-                  <p className="font-cinzel text-base text-[#ffd700] mb-2">No Ganesha Idols Found</p>
+                  <p className="font-cinzel text-base text-[#ffd700] mb-2">No Items Found</p>
                   <p className="text-xs">Try clearing your search query or refreshing the catalog.</p>
                 </div>
+              ) : viewMode === 'table' ? (
+                /* OFFICIAL PRICE LIST TABLE VIEW */
+                <div className="overflow-x-auto border border-[#ffd700]/30 rounded-2xl shadow-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-[#6b1f1f] text-[#ffd700] font-cinzel text-[11px] uppercase tracking-wider border-b border-[#ffd700]/30">
+                        <th className="py-3.5 px-3 text-center w-16">SL-NO</th>
+                        <th className="py-3.5 px-4">ITEM NAME</th>
+                        <th className="py-3.5 px-4 text-center w-28">CATEGORY</th>
+                        <th className="py-3.5 px-4 text-right w-32">PRICE</th>
+                        <th className="py-3.5 px-4 text-center w-40">SELECT QTY</th>
+                        <th className="py-3.5 px-4 text-right w-32">TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#ffd700]/15 font-medium">
+                      {filteredCatalog.map((item, idx) => {
+                        const rate = Number(item.price || item.wholesalePrice || item.retailPrice || 0);
+                        const currentQty = orderQuantities[item.id] || 0;
+                        const itemCat = item.category || (item.name.toLowerCase().includes('gowri') ? 'GOWRI' : 'GANESHA');
+
+                        return (
+                          <tr 
+                            key={item.id} 
+                            className={`transition-colors ${
+                              currentQty > 0 ? 'bg-[#ffd700]/10 font-bold' : (idx % 2 === 1 ? 'bg-white/[0.02]' : 'hover:bg-white/5')
+                            }`}
+                          >
+                            <td className="py-3 px-3 text-center text-gray-400 font-mono">
+                              {item.slNo || idx + 1}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-white">
+                              <span className="text-[#ffd700] text-sm">{item.name}</span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                itemCat === 'GANESHA' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              }`}>
+                                {itemCat}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right font-cinzel text-sm font-bold text-gold-gradient">
+                              ₹{rate.toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => adjustQuantity(item.id, -1)}
+                                  className="w-7 h-7 rounded-lg bg-black/40 hover:bg-[#ffd700]/20 text-[#ffd700] flex items-center justify-center font-bold"
+                                  title="Decrease"
+                                >
+                                  <Minus size={13} />
+                                </button>
+                                <span className="w-8 text-center font-bold text-[#ffd700] text-sm">
+                                  {currentQty}
+                                </span>
+                                <button
+                                  onClick={() => adjustQuantity(item.id, 1)}
+                                  className="w-7 h-7 rounded-lg bg-[#ffd700] hover:bg-[#ffe24d] text-[#1a0003] flex items-center justify-center font-bold"
+                                  title="Increase"
+                                >
+                                  <Plus size={13} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right font-cinzel text-sm font-bold text-gold-gradient">
+                              {currentQty > 0 ? `₹${(rate * currentQty).toLocaleString('en-IN')}` : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
+                /* GRID CARDS VIEW */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredCatalog.map(item => {
+                  {filteredCatalog.map((item, idx) => {
                     const itemImages = item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []);
                     const currentPhotoIdx = activePhotoIndexes[item.id] || 0;
                     const hasMultiplePhotos = itemImages.length > 1;
 
-                    const rate = priceType === 'wholesale' 
-                      ? Number(item.wholesalePrice || item.retailPrice || 0)
-                      : Number(item.retailPrice || 0);
+                    const rate = Number(item.price || item.wholesalePrice || item.retailPrice || 0);
                     const currentQty = orderQuantities[item.id] || 0;
+                    const itemCat = item.category || (item.name.toLowerCase().includes('gowri') ? 'GOWRI' : 'GANESHA');
 
                     return (
                       <div 
@@ -470,8 +615,8 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                             : 'border-[#ffd700]/20 hover:border-[#ffd700]/60'
                         }`}
                       >
-                        {/* Image Carousel */}
-                        <div className="relative aspect-square w-full bg-black/40 border-b border-[#ffd700]/15 flex items-center justify-center overflow-hidden">
+                        {/* Image Header or Clean Decorative Emblem */}
+                        <div className="relative aspect-video w-full bg-gradient-to-br from-[#2d0007] to-black border-b border-[#ffd700]/15 flex items-center justify-center overflow-hidden">
                           {itemImages.length > 0 ? (
                             <img
                               src={itemImages[currentPhotoIdx]}
@@ -479,8 +624,11 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="text-[#ffd700] text-xs font-cinzel font-bold uppercase tracking-wider">
-                              Divine Clay Ganesha
+                            <div className="text-center p-4">
+                              <DiyaDecoration className="w-10 h-10 mx-auto mb-1 opacity-80" />
+                              <div className="text-[#ffd700] text-xs font-cinzel font-bold uppercase tracking-wider">
+                                {itemCat} IDOL
+                              </div>
                             </div>
                           )}
 
@@ -501,11 +649,11 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                                 ›
                               </button>
                               <div className="absolute bottom-2 left-1/2 -translate-y-0 -translate-x-1/2 flex gap-1 bg-black/50 px-2 py-0.5 rounded-full">
-                                {itemImages.map((_, idx) => (
+                                {itemImages.map((_, pIdx) => (
                                   <span
-                                    key={idx}
+                                    key={pIdx}
                                     className={`w-1.5 h-1.5 rounded-full transition-all ${
-                                      idx === currentPhotoIdx ? 'bg-[#ffd700] w-3' : 'bg-white/40'
+                                      pIdx === currentPhotoIdx ? 'bg-[#ffd700] w-3' : 'bg-white/40'
                                     }`}
                                   />
                                 ))}
@@ -513,12 +661,12 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                             </>
                           )}
 
-                          {/* Size Tag */}
+                          {/* Category Tag (Top Left) */}
                           <span className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md text-[#ffd700] border border-[#ffd700]/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                            📏 {item.size || 'Custom Size'}
+                            {itemCat} #{item.slNo || idx + 1}
                           </span>
 
-                          {/* Selected Quantity Badge */}
+                          {/* Selected Quantity Badge (Top Right) */}
                           {currentQty > 0 && (
                             <span className="absolute top-2.5 right-2.5 bg-[#ffd700] text-[#1a0003] font-black text-xs px-2.5 py-0.5 rounded-full shadow-lg">
                               ✓ {currentQty} Selected
@@ -533,7 +681,7 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                               {item.name}
                             </h4>
                             <p className="text-xs text-[#cbd5e1] line-clamp-2 mb-3">
-                              {item.description || 'Eco-friendly pure organic clay idol handcrafted with natural divine beauty.'}
+                              100% natural clay idol handcrafted with pure devotion.
                             </p>
                           </div>
 
@@ -541,10 +689,10 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                           <div className="border-t border-[#ffd700]/15 pt-3">
                             <div className="flex justify-between items-baseline mb-3">
                               <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                                Wholesale Price:
+                                Price:
                               </span>
                               <div className="text-right">
-                                <span className="font-cinzel text-lg font-black text-gold-gradient">
+                                <span className="font-cinzel text-xl font-black text-gold-gradient">
                                   ₹{rate.toLocaleString('en-IN')}
                                 </span>
                               </div>
@@ -660,10 +808,10 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                 <div>
                   <h3 className="font-cinzel text-base sm:text-lg font-bold text-[#ffd700] flex items-center gap-2">
                     <ShoppingBag size={18} className="text-[#ff6a00]" />
-                    <span>2. Selected Ganesha Idols</span>
+                    <span>2. Selected Items</span>
                   </h3>
                   <span className="text-xs text-[#cbd5e1]">
-                    Pricing applied: <strong className="text-[#ffd700] uppercase">{priceType} Tier</strong>
+                    Official rate card pricing applied
                   </span>
                 </div>
 
@@ -673,7 +821,7 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                     className="btn-outline-gold px-3.5 py-1.5 text-xs flex items-center gap-1.5"
                   >
                     <Plus size={14} />
-                    <span>Add More Idols</span>
+                    <span>Add More Items</span>
                   </button>
                   {billSummary.items.length > 0 && (
                     <button
@@ -690,13 +838,13 @@ _Generated from G.Kamal Ganesha Works Portal_`;
 
               {billSummary.items.length === 0 ? (
                 <div className="text-center py-12 text-[#cbd5e1]">
-                  <p className="font-cinzel text-base text-[#ffd700] mb-2">No Idols Selected</p>
-                  <p className="text-xs mb-6">Choose Ganesha idols from the catalog gallery to generate a bill.</p>
+                  <p className="font-cinzel text-base text-[#ffd700] mb-2">No Items Selected</p>
+                  <p className="text-xs mb-6">Choose items from the catalog to generate a bill.</p>
                   <button
                     onClick={() => setActiveTab('catalog')}
                     className="btn-gold px-6 py-2.5 text-xs font-bold"
                   >
-                    Browse Ganesha Catalog →
+                    Browse Catalog →
                   </button>
                 </div>
               ) : (
@@ -705,9 +853,8 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                     <thead>
                       <tr className="border-b border-[#ffd700]/20 text-[#ffd700] font-cinzel text-[11px] uppercase tracking-wider">
                         <th className="py-3 px-2">#</th>
-                        <th className="py-3 px-3">Ganesha Model</th>
-                        <th className="py-3 px-3">Size</th>
-                        <th className="py-3 px-3 text-right">Rate</th>
+                        <th className="py-3 px-4">Item Name</th>
+                        <th className="py-3 px-3 text-right">Price</th>
                         <th className="py-3 px-3 text-center">Quantity</th>
                         <th className="py-3 px-3 text-right">Line Total</th>
                         <th className="py-3 px-2 text-center">Action</th>
@@ -717,8 +864,7 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                       {billSummary.items.map((item, index) => (
                         <tr key={item.itemId} className="hover:bg-white/5">
                           <td className="py-3 px-2 text-gray-400">{index + 1}</td>
-                          <td className="py-3 px-3 font-semibold text-[#ffd700]">{item.name}</td>
-                          <td className="py-3 px-3 text-[#cbd5e1]">{item.size}</td>
+                          <td className="py-3 px-4 font-semibold text-[#ffd700]">{item.name}</td>
                           <td className="py-3 px-3 text-right">₹{item.rate.toLocaleString('en-IN')}</td>
                           <td className="py-3 px-3">
                             <div className="flex items-center justify-center gap-1.5">
@@ -820,7 +966,7 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                   {/* Right: Calculations & Action Buttons */}
                   <div className="bg-black/40 border border-[#ffd700]/25 rounded-2xl p-6 space-y-3">
                     <div className="flex justify-between items-center text-xs text-gray-300">
-                      <span>Total Idols Selected:</span>
+                      <span>Total Units Selected:</span>
                       <strong className="text-white">{billSummary.totalUnits} Units</strong>
                     </div>
 
@@ -889,7 +1035,7 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                     ✦ Checking Bill Preview ✦
                   </h3>
                   <p className="text-[11px] text-[#cbd5e1]">
-                    G.Kamal Ganesha Works • Bangalore
+                    G.Kamal Ganesha Works • Bangalore - 560077
                   </p>
                 </div>
                 <button
@@ -919,7 +1065,7 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                   <span className="block font-bold text-[#ffd700] uppercase text-[10px]">Reference:</span>
                   <p className="font-mono text-white mt-0.5">{previewBillData.id}</p>
                   <p className="text-gray-300">Date: {new Date().toLocaleDateString('en-IN')}</p>
-                  <p className="text-amber-300 font-bold uppercase">{priceType} Tier</p>
+                  <p className="text-amber-300 font-bold uppercase">2026 Price Card</p>
                 </div>
               </div>
 
@@ -928,9 +1074,9 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-[#ffd700]/20 text-[#ffd700] font-cinzel text-[10px] uppercase">
-                      <th className="py-2 px-2">Item</th>
-                      <th className="py-2 px-2">Size</th>
-                      <th className="py-2 px-2 text-right">Rate</th>
+                      <th className="py-2 px-2">#</th>
+                      <th className="py-2 px-3">Item Description</th>
+                      <th className="py-2 px-2 text-right">Price</th>
                       <th className="py-2 px-2 text-center">Qty</th>
                       <th className="py-2 px-2 text-right">Total</th>
                     </tr>
@@ -938,8 +1084,8 @@ _Generated from G.Kamal Ganesha Works Portal_`;
                   <tbody className="divide-y divide-white/5">
                     {previewBillData.items.map((it, idx) => (
                       <tr key={idx}>
-                        <td className="py-2 px-2 text-white font-medium">{it.name}</td>
-                        <td className="py-2 px-2 text-gray-300">{it.size}</td>
+                        <td className="py-2 px-2 text-gray-400">{idx + 1}</td>
+                        <td className="py-2 px-3 text-white font-medium">{it.name}</td>
                         <td className="py-2 px-2 text-right text-gray-300">₹{it.rate.toLocaleString('en-IN')}</td>
                         <td className="py-2 px-2 text-center text-[#ffd700] font-bold">{it.quantity}</td>
                         <td className="py-2 px-2 text-right text-gold-gradient font-bold">₹{it.lineTotal.toLocaleString('en-IN')}</td>

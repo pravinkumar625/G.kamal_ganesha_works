@@ -178,9 +178,8 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('#', 13, tableStartY + 5);
   doc.text('Item Description', 22, tableStartY + 5);
-  doc.text('Size', 96, tableStartY + 5);
-  doc.text('Rate', 128, tableStartY + 5, { align: 'right' });
-  doc.text('Qty', 152, tableStartY + 5, { align: 'right' });
+  doc.text('Rate', 138, tableStartY + 5, { align: 'right' });
+  doc.text('Qty', 162, tableStartY + 5, { align: 'right' });
   doc.text('Amount', pageWidth - 13, tableStartY + 5, { align: 'right' });
 
   let currentY = tableStartY + 7.5;
@@ -198,13 +197,12 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
     doc.setFontSize(8.5);
     doc.text(String(idx + 1), 13, currentY + 5);
 
-    const nameLines = doc.splitTextToSize(item.name || '', 68);
+    const nameLines = doc.splitTextToSize(item.name || '', 100);
     doc.text(nameLines[0], 22, currentY + 5);
 
-    doc.text(item.size || '', 96, currentY + 5);
     const rateVal = Number(item.rate !== undefined && !isNaN(item.rate) ? item.rate : (item.quantity ? ((item.lineTotal || 0) / item.quantity) : 0));
-    doc.text(`Rs.${rateVal.toLocaleString('en-IN')}`, 128, currentY + 5, { align: 'right' });
-    doc.text(String(item.quantity || 1), 152, currentY + 5, { align: 'right' });
+    doc.text(`Rs.${rateVal.toLocaleString('en-IN')}`, 138, currentY + 5, { align: 'right' });
+    doc.text(String(item.quantity || 1), 162, currentY + 5, { align: 'right' });
     const lineTotalVal = Number(item.lineTotal !== undefined && !isNaN(item.lineTotal) ? item.lineTotal : (rateVal * (item.quantity || 1)));
     doc.text(`Rs.${lineTotalVal.toLocaleString('en-IN')}`, pageWidth - 13, currentY + 5, { align: 'right' });
 

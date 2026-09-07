@@ -254,18 +254,21 @@ router.get('/catalog', (req, res) => {
 
 // Add new catalog item
 router.post('/catalog', (req, res) => {
-  const { name, size, costPrice, retailPrice, wholesalePrice, image, images } = req.body;
+  const { name, category, price, retailPrice, wholesalePrice, costPrice, image, images } = req.body;
 
-  if (!name || !size || retailPrice === undefined || wholesalePrice === undefined) {
-    return res.status(400).json({ error: 'Item name, size, retail price, and wholesale price are required' });
+  const itemPrice = price !== undefined ? Number(price) : (wholesalePrice !== undefined ? Number(wholesalePrice) : Number(retailPrice));
+
+  if (!name || isNaN(itemPrice)) {
+    return res.status(400).json({ error: 'Item name and price are required' });
   }
 
   const newItem = db.insert('ganesha_items', {
     name: name.trim(),
-    size: size.trim(),
+    category: category ? category.trim().toUpperCase() : 'GANESHA',
+    price: itemPrice,
+    wholesalePrice: itemPrice,
+    retailPrice: itemPrice,
     costPrice: costPrice !== undefined && costPrice !== '' ? Number(costPrice) : 0,
-    retailPrice: Number(retailPrice),
-    wholesalePrice: Number(wholesalePrice),
     image: image || '',
     images: images || []
   });
@@ -276,14 +279,20 @@ router.post('/catalog', (req, res) => {
 // Edit catalog item
 router.put('/catalog/:id', (req, res) => {
   const itemId = req.params.id;
-  const { name, size, costPrice, retailPrice, wholesalePrice, image, images } = req.body;
+  const { name, category, price, retailPrice, wholesalePrice, costPrice, image, images } = req.body;
 
   const updates = {};
   if (name) updates.name = name.trim();
-  if (size) updates.size = size.trim();
+  if (category) updates.category = category.trim().toUpperCase();
+  
+  const itemPrice = price !== undefined ? Number(price) : (wholesalePrice !== undefined ? Number(wholesalePrice) : (retailPrice !== undefined ? Number(retailPrice) : undefined));
+  if (itemPrice !== undefined && !isNaN(itemPrice)) {
+    updates.price = itemPrice;
+    updates.wholesalePrice = itemPrice;
+    updates.retailPrice = itemPrice;
+  }
+  
   if (costPrice !== undefined) updates.costPrice = costPrice !== '' ? Number(costPrice) : 0;
-  if (retailPrice !== undefined) updates.retailPrice = Number(retailPrice);
-  if (wholesalePrice !== undefined) updates.wholesalePrice = Number(wholesalePrice);
   if (image !== undefined) updates.image = image;
   if (images !== undefined) updates.images = images;
 

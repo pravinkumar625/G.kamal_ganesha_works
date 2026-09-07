@@ -10,25 +10,22 @@ const LandingPage = () => {
 
   const previews = [
     { 
-      name: 'Clay Bal Ganesha', 
-      size: '1/2 ft to 1.5 ft', 
-      desc: 'Eco-friendly pure mud models without toxic paints, ideal for home and family pooja.', 
-      tag: 'Most Popular',
-      priceHint: 'From ₹450'
+      name: 'DARBAR', 
+      desc: 'Eco-friendly pure mud model sculpted with divine grace for home and family pooja.', 
+      tag: 'Ganesha #1',
+      priceHint: '₹505'
     },
     { 
-      name: 'Traditional Ganesha', 
-      size: '1.5 ft to 2.5 ft', 
-      desc: 'Adorned with organic natural colors, featuring classical ornaments and blessing posture.', 
-      tag: 'Heritage',
-      priceHint: 'From ₹1,800'
+      name: '1.5 FEET GOWRI', 
+      desc: 'Gracefully crafted sacred clay Gowri idol with natural divine radiance.', 
+      tag: 'Gowri #11',
+      priceHint: '₹610'
     },
     { 
-      name: 'Royal Durbar Ganesha', 
-      size: '2 ft to 3 ft', 
-      desc: 'Grand majestically sculpted idol with an elegant backdrop throne arch and vibrant crown.', 
-      tag: 'Grand Royal',
-      priceHint: 'From ₹6,500'
+      name: 'KALVET', 
+      desc: 'Grand majestically sculpted traditional clay idol model with exquisite classical detailing.', 
+      tag: 'Ganesha #10',
+      priceHint: '₹1,200'
     }
   ];
 
@@ -45,13 +42,13 @@ const LandingPage = () => {
     },
     {
       icon: ShoppingBag,
-      title: 'Wholesale & Retail Tiers',
-      desc: 'Special bulk purchase rates for community Mandalis, temples, and retailers.'
+      title: 'Direct Official Pricing',
+      desc: 'Transparent manufacturer rates for all handcrafted Ganesha and Gowri models.'
     },
     {
       icon: ShieldCheck,
       title: 'Instant Checking Bill (PDF)',
-      desc: 'Transparent retail & wholesale pricing calculation and instant printable Checking Bill PDF.'
+      desc: 'Instant pricing calculation, customizable advance payment, and printable Checking Bill PDF.'
     }
   ];
 
@@ -77,7 +74,7 @@ const LandingPage = () => {
         </div>
 
         <p className="text-[#ffebc2] text-xs sm:text-base max-w-2xl mx-auto font-medium tracking-wide mb-10 leading-relaxed">
-          Celebrating decades of spiritual tradition in Bangalore. Handcrafting divine, 100% natural clay Ganesha idols from 1/4 feet to 3 feet with pure devotion.
+          Celebrating decades of spiritual tradition in Bangalore. Handcrafting divine, 100% natural clay Ganesha and Gowri idols with pure devotion.
         </p>
 
         {/* Main Hero Action Card */}
@@ -90,7 +87,7 @@ const LandingPage = () => {
           </h2>
           
           <p className="text-sm sm:text-base text-[#ffebc2] leading-relaxed mb-8 max-w-xl mx-auto opacity-95 font-medium">
-            Explore our handcrafted catalog, view transparent retail & wholesale pricing, configure advance payments, and generate instant Checking Bills in PDF format.
+            Explore our official 2026 catalog, view transparent pricing, configure advance payments, and generate instant Checking Bills in PDF format.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -151,7 +148,7 @@ const LandingPage = () => {
           <div className="flex items-center justify-center gap-3 mb-8">
             <div className="h-[1px] w-12 bg-[#ffd700]/30"></div>
             <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-gradient tracking-wider uppercase">
-              ✦ Exclusive Craft Collection ✦
+              ✦ Official 2026 Collection Glimpse ✦
             </h3>
             <div className="h-[1px] w-12 bg-[#ffd700]/30"></div>
           </div>
@@ -167,7 +164,6 @@ const LandingPage = () => {
                     <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded-full badge-orange">
                       {item.tag}
                     </span>
-                    <span className="text-xs text-[#ffd700] font-semibold">{item.size}</span>
                   </div>
                   
                   <h4 className="font-cinzel font-bold text-lg text-gold-gradient mb-2 group-hover:text-white transition-colors">
@@ -180,7 +176,7 @@ const LandingPage = () => {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-[#ffd700]/15 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#ffd700]">{item.priceHint}</span>
+                  <span className="text-sm font-bold text-[#ffd700] font-cinzel">{item.priceHint}</span>
                   <span className="text-[11px] text-[#ff6a00] font-semibold flex items-center gap-1">
                     <Leaf size={12} /> 100% Eco Clay
                   </span>
