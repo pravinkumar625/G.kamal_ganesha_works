@@ -22,7 +22,9 @@ import {
   MessageCircle,
   Layers,
   LayoutGrid,
-  List
+  List,
+  Edit3,
+  PlusCircle
 } from 'lucide-react';
 import { generateBillPDF, downloadPDFBlob } from '../../utils/pdfGenerator';
 
@@ -38,6 +40,14 @@ const CustomerDashboard = () => {
 
   // Selected quantities: { [itemId]: quantity }
   const [orderQuantities, setOrderQuantities] = useState({});
+  // Custom manual price overrides: { [itemId]: customRate }
+  const [customRates, setCustomRates] = useState({});
+  // Custom manual items added directly by user: [ { id, name, rate, quantity } ]
+  const [manualCustomItems, setManualCustomItems] = useState([]);
+  // Form state for adding manual custom item
+  const [showManualItemForm, setShowManualItemForm] = useState(false);
+  const [manualItemForm, setManualItemForm] = useState({ name: '', rate: '', quantity: 1 });
+
   const [advancePayment, setAdvancePayment] = useState(0);
 
   // Customer bill recipient details (for bill printing)
@@ -62,13 +72,11 @@ const CustomerDashboard = () => {
   const fetchCatalog = async () => {
     setLoading(true);
     try {
-      // Fetch public catalog
       const response = await fetch('/api/catalog');
       if (response.ok) {
         const data = await response.json();
         setCatalog(data || []);
       } else {
-        // Fallback to /api/customer/catalog
         const fallbackRes = await fetch('/api/customer/catalog');
         if (fallbackRes.ok) {
           const fallbackData = await fallbackRes.json();
@@ -83,9 +91,13 @@ const CustomerDashboard = () => {
     }
   };
 
-  // Quantity handlers
+  // Quantity handlers (Supports manual typing and button increments)
   const handleQuantityChange = (itemId, val) => {
-    const qty = Math.max(0, parseInt(val) || 0);
+    if (val === '' || val === null || val === undefined) {
+      setOrderQuantities(prev => ({ ...prev, [itemId]: 0 }));
+      return;
+    }
+    const qty = Math.max(0, parseInt(val, 10) || 0);
     setOrderQuantities(prev => ({ ...prev, [itemId]: qty }));
   };
 
@@ -95,16 +107,64 @@ const CustomerDashboard = () => {
     setOrderQuantities(prev => ({ ...prev, [itemId]: newQty }));
   };
 
+  const handleRateChange = (itemId, val) => {
+    const newRate = Math.max(0, parseFloat(val) || 0);
+    setCustomRates(prev => ({ ...prev, [itemId]: newRate }));
+  };
+
   const removeItem = (itemId) => {
     setOrderQuantities(prev => {
       const updated = { ...prev };
       delete updated[itemId];
       return updated;
     });
+    setManualCustomItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  // Manual Custom Item Handlers
+  const handleAddManualItem = (e) => {
+    e.preventDefault();
+    if (!manualItemForm.name.trim()) {
+      setError('Please enter an item name');
+      return;
+    }
+    const rate = Math.max(0, parseFloat(manualItemForm.rate) || 0);
+    const qty = Math.max(1, parseInt(manualItemForm.quantity, 10) || 1);
+
+    const newItem = {
+      id: `manual-${Date.now()}`,
+      name: manualItemForm.name.trim(),
+      category: 'CUSTOM',
+      rate,
+      quantity: qty,
+      isManual: true
+    };
+
+    setManualCustomItems(prev => [...prev, newItem]);
+    setManualItemForm({ name: '', rate: '', quantity: 1 });
+    setShowManualItemForm(false);
+    setSuccess(`Custom item "${newItem.name}" added to bill!`);
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleManualItemQtyChange = (id, val) => {
+    const qty = Math.max(0, parseInt(val, 10) || 0);
+    setManualCustomItems(prev => prev.map(item => item.id === id ? { ...item, quantity: qty } : item));
+  };
+
+  const handleManualItemRateChange = (id, val) => {
+    const rate = Math.max(0, parseFloat(val) || 0);
+    setManualCustomItems(prev => prev.map(item => item.id === id ? { ...item, rate } : item));
+  };
+
+  const handleManualItemNameChange = (id, val) => {
+    setManualCustomItems(prev => prev.map(item => item.id === id ? { ...item, name: val } : item));
   };
 
   const clearAllItems = () => {
     setOrderQuantities({});
+    setCustomRates({});
+    setManualCustomItems([]);
     setAdvancePayment(0);
     setSuccess('Bill items cleared.');
     setTimeout(() => setSuccess(''), 3000);
@@ -133,10 +193,12 @@ const CustomerDashboard = () => {
     let grandTotal = 0;
     let totalUnits = 0;
 
+    // Standard catalog items
     catalog.forEach(item => {
       const qty = orderQuantities[item.id] || 0;
       if (qty > 0) {
-        const rate = Number(item.price || item.wholesalePrice || item.retailPrice || 0);
+        const defaultRate = Number(item.price || item.wholesalePrice || item.retailPrice || 0);
+        const rate = customRates[item.id] !== undefined ? customRates[item.id] : defaultRate;
         const lineTotal = rate * qty;
         grandTotal += lineTotal;
         totalUnits += qty;
@@ -146,7 +208,26 @@ const CustomerDashboard = () => {
           category: item.category || (item.name.toLowerCase().includes('gowri') ? 'GOWRI' : 'GANESHA'),
           rate,
           quantity: qty,
-          lineTotal
+          lineTotal,
+          isManual: false
+        });
+      }
+    });
+
+    // Custom manually added items
+    manualCustomItems.forEach(item => {
+      if (item.quantity > 0) {
+        const lineTotal = item.rate * item.quantity;
+        grandTotal += lineTotal;
+        totalUnits += item.quantity;
+        selectedItems.push({
+          itemId: item.id,
+          name: item.name,
+          category: item.category || 'CUSTOM',
+          rate: item.rate,
+          quantity: item.quantity,
+          lineTotal,
+          isManual: true
         });
       }
     });
@@ -188,7 +269,7 @@ const CustomerDashboard = () => {
   const handlePreviewBill = () => {
     setError('');
     if (billSummary.items.length === 0) {
-      setError('Please select at least one item from the catalog to generate a bill.');
+      setError('Please select or write at least one item to generate a bill.');
       return;
     }
     const billData = buildBillObject();
@@ -200,7 +281,7 @@ const CustomerDashboard = () => {
   const handleDownloadCheckingBill = () => {
     setError('');
     if (billSummary.items.length === 0) {
-      setError('Please select at least one item from the catalog to generate a bill.');
+      setError('Please select or write at least one item to generate a bill.');
       return;
     }
     try {
@@ -221,7 +302,7 @@ const CustomerDashboard = () => {
   const shareOnWhatsApp = (customBill = null) => {
     setError('');
     if (billSummary.items.length === 0) {
-      setError('Please select at least one item from the catalog to generate and share a bill.');
+      setError('Please select or write at least one item to generate and share a bill.');
       return;
     }
     const data = customBill || previewBillData || buildBillObject();
@@ -288,7 +369,11 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
         {/* Banner */}
         <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/30 shadow-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
-            <DiyaDecoration className="w-12 h-12 animate-float" />
+            <img 
+              src="/logo.png" 
+              alt="G.Kamal Ganesha Works" 
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#ffd700] shadow-xl bg-black"
+            />
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="font-cinzel text-xl sm:text-2xl font-extrabold text-gold-gradient tracking-wide uppercase">
@@ -423,13 +508,13 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                     G.Kamal Ganesha Works — 2026 Price List
                   </h3>
                   <p className="text-xs text-[#cbd5e1] mt-0.5">
-                    Select quantities for any idol to instantly compute your Checking Bill.
+                    Type or click quantities for any idol to instantly compute your Checking Bill.
                   </p>
                 </div>
 
-                {/* Search & View Toggle */}
+                {/* Search, Custom Item, & View Toggle */}
                 <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                  <div className="relative flex-grow sm:w-56">
+                  <div className="relative flex-grow sm:w-52">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#ffd700]/60" />
                     <input
                       type="text"
@@ -439,6 +524,16 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                       className="w-full pl-9 pr-3 py-1.5 input-glass text-xs"
                     />
                   </div>
+
+                  {/* Add Manual Item Trigger */}
+                  <button
+                    onClick={() => setShowManualItemForm(!showManualItemForm)}
+                    className="btn-outline-gold px-3 py-1.5 text-xs flex items-center gap-1.5 font-bold"
+                    title="Write a custom item manually"
+                  >
+                    <Edit3 size={13} className="text-[#ff6a00]" />
+                    <span>+ Write Custom Item</span>
+                  </button>
 
                   {/* View Mode Switcher */}
                   <div className="flex items-center bg-black/40 border border-[#ffd700]/30 rounded-xl p-0.5">
@@ -473,6 +568,78 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                   </button>
                 </div>
               </div>
+
+              {/* MANUAL CUSTOM ITEM FORM (Collapsible) */}
+              {showManualItemForm && (
+                <div className="mb-6 p-5 glass-panel border-2 border-[#ffd700]/50 rounded-2xl bg-[#2d0007]/60 animate-fadeIn">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-cinzel text-xs sm:text-sm font-bold text-[#ffd700] flex items-center gap-2">
+                      <Edit3 size={15} className="text-[#ff6a00]" />
+                      <span>Write / Add Custom Item Manually</span>
+                    </h4>
+                    <button
+                      onClick={() => setShowManualItemForm(false)}
+                      className="text-gray-400 hover:text-white text-xs"
+                    >
+                      ✕ Cancel
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handleAddManualItem} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#ffebc2] mb-1">
+                        Item Name / Description *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={manualItemForm.name}
+                        onChange={(e) => setManualItemForm({ ...manualItemForm, name: e.target.value })}
+                        placeholder="e.g. 2.5 Feet Custom Clay Ganesha"
+                        className="w-full input-glass px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#ffebc2] mb-1">
+                        Price per Item (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={manualItemForm.rate}
+                        onChange={(e) => setManualItemForm({ ...manualItemForm, rate: e.target.value })}
+                        placeholder="e.g. 850"
+                        className="w-full input-glass px-3 py-2 text-xs font-bold text-[#ffd700]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#ffebc2] mb-1">
+                        Quantity *
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={manualItemForm.quantity}
+                          onChange={(e) => setManualItemForm({ ...manualItemForm, quantity: e.target.value })}
+                          className="w-20 input-glass px-2 py-2 text-xs text-center font-bold text-[#ffd700]"
+                        />
+                        <button
+                          type="submit"
+                          className="flex-grow btn-gold py-2 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 shadow-md"
+                        >
+                          <PlusCircle size={14} />
+                          <span>Add to Bill</span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              )}
 
               {/* Category Pills Filter */}
               <div className="flex flex-wrap items-center gap-2.5 mb-6">
@@ -522,7 +689,7 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                   <p className="text-xs">Try clearing your search query or refreshing the catalog.</p>
                 </div>
               ) : viewMode === 'table' ? (
-                /* OFFICIAL PRICE LIST TABLE VIEW */
+                /* OFFICIAL PRICE LIST TABLE VIEW (With editable input) */
                 <div className="overflow-x-auto border border-[#ffd700]/30 rounded-2xl shadow-xl">
                   <table className="w-full text-left text-xs">
                     <thead>
@@ -531,7 +698,7 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                         <th className="py-3.5 px-4">ITEM NAME</th>
                         <th className="py-3.5 px-4 text-center w-28">CATEGORY</th>
                         <th className="py-3.5 px-4 text-right w-32">PRICE</th>
-                        <th className="py-3.5 px-4 text-center w-40">SELECT QTY</th>
+                        <th className="py-3.5 px-4 text-center w-48">ENTER QTY (TYPE OR CLICK)</th>
                         <th className="py-3.5 px-4 text-right w-32">TOTAL</th>
                       </tr>
                     </thead>
@@ -573,9 +740,18 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                                 >
                                   <Minus size={13} />
                                 </button>
-                                <span className="w-8 text-center font-bold text-[#ffd700] text-sm">
-                                  {currentQty}
-                                </span>
+                                
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={currentQty > 0 ? currentQty : ''}
+                                  onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                                  placeholder="0"
+                                  className="w-16 text-center font-bold text-[#ffd700] text-sm bg-black/60 border border-[#ffd700]/40 rounded-lg py-1 px-1 focus:border-[#ffd700] focus:ring-1 focus:ring-[#ffd700] outline-none"
+                                  onClick={(e) => e.target.select()}
+                                  title="Click to type quantity manually"
+                                />
+
                                 <button
                                   onClick={() => adjustQuantity(item.id, 1)}
                                   className="w-7 h-7 rounded-lg bg-[#ffd700] hover:bg-[#ffe24d] text-[#1a0003] flex items-center justify-center font-bold"
@@ -595,7 +771,7 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                   </table>
                 </div>
               ) : (
-                /* GRID CARDS VIEW */
+                /* GRID CARDS VIEW (With writable manual input) */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredCatalog.map((item, idx) => {
                     const itemImages = item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []);
@@ -698,7 +874,7 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                               </div>
                             </div>
 
-                            {/* Quantity Selector */}
+                            {/* Quantity Selector with DIRECT MANUAL INPUT */}
                             {currentQty === 0 ? (
                               <button
                                 onClick={() => adjustQuantity(item.id, 1)}
@@ -717,11 +893,18 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                                   <Minus size={14} />
                                 </button>
                                 
-                                <div className="text-center">
-                                  <span className="font-cinzel font-bold text-sm text-[#ffd700]">
-                                    {currentQty}
-                                  </span>
-                                  <span className="block text-[9px] text-gray-400 uppercase">
+                                <div className="text-center px-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={currentQty > 0 ? currentQty : ''}
+                                    onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                                    placeholder="0"
+                                    className="w-16 text-center font-cinzel font-bold text-sm text-[#ffd700] bg-black/60 border border-[#ffd700]/40 rounded-lg py-1 px-1 focus:border-[#ffd700] focus:ring-1 focus:ring-[#ffd700] outline-none"
+                                    onClick={(e) => e.target.select()}
+                                    title="Click to write quantity manually"
+                                  />
+                                  <span className="block text-[9px] text-gray-400 uppercase mt-0.5">
                                     Total: ₹{(rate * currentQty).toLocaleString('en-IN')}
                                   </span>
                                 </div>
@@ -802,26 +985,34 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
               </div>
             </div>
 
-            {/* Selected Idols Table Card */}
+            {/* Selected Items Table Card (With Editable Manual Fields) */}
             <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/30 shadow-2xl">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-[#ffd700]/20 mb-6 gap-3">
                 <div>
                   <h3 className="font-cinzel text-base sm:text-lg font-bold text-[#ffd700] flex items-center gap-2">
                     <ShoppingBag size={18} className="text-[#ff6a00]" />
-                    <span>2. Selected Items</span>
+                    <span>2. Selected Items & Custom Additions</span>
                   </h3>
                   <span className="text-xs text-[#cbd5e1]">
-                    Official rate card pricing applied
+                    You can type quantities, edit custom rates, or write additional items manually.
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setShowManualItemForm(!showManualItemForm)}
+                    className="btn-outline-gold px-3.5 py-1.5 text-xs flex items-center gap-1.5 font-bold"
+                  >
+                    <Edit3 size={14} className="text-[#ff6a00]" />
+                    <span>+ Add Custom Item</span>
+                  </button>
+
                   <button
                     onClick={() => setActiveTab('catalog')}
                     className="btn-outline-gold px-3.5 py-1.5 text-xs flex items-center gap-1.5"
                   >
                     <Plus size={14} />
-                    <span>Add More Items</span>
+                    <span>Browse Catalog</span>
                   </button>
                   {billSummary.items.length > 0 && (
                     <button
@@ -836,16 +1027,96 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                 </div>
               </div>
 
+              {/* MANUAL CUSTOM ITEM FORM (Collapsible in Bill Builder) */}
+              {showManualItemForm && (
+                <div className="mb-6 p-5 glass-panel border-2 border-[#ffd700]/50 rounded-2xl bg-[#2d0007]/60 animate-fadeIn">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-cinzel text-xs sm:text-sm font-bold text-[#ffd700] flex items-center gap-2">
+                      <Edit3 size={15} className="text-[#ff6a00]" />
+                      <span>Write / Add Custom Item Manually</span>
+                    </h4>
+                    <button
+                      onClick={() => setShowManualItemForm(false)}
+                      className="text-gray-400 hover:text-white text-xs"
+                    >
+                      ✕ Cancel
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handleAddManualItem} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#ffebc2] mb-1">
+                        Item Name / Description *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={manualItemForm.name}
+                        onChange={(e) => setManualItemForm({ ...manualItemForm, name: e.target.value })}
+                        placeholder="e.g. 2.5 Feet Custom Clay Ganesha"
+                        className="w-full input-glass px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#ffebc2] mb-1">
+                        Price per Item (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={manualItemForm.rate}
+                        onChange={(e) => setManualItemForm({ ...manualItemForm, rate: e.target.value })}
+                        placeholder="e.g. 850"
+                        className="w-full input-glass px-3 py-2 text-xs font-bold text-[#ffd700]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#ffebc2] mb-1">
+                        Quantity *
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={manualItemForm.quantity}
+                          onChange={(e) => setManualItemForm({ ...manualItemForm, quantity: e.target.value })}
+                          className="w-20 input-glass px-2 py-2 text-xs text-center font-bold text-[#ffd700]"
+                        />
+                        <button
+                          type="submit"
+                          className="flex-grow btn-gold py-2 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 shadow-md"
+                        >
+                          <PlusCircle size={14} />
+                          <span>Add to Bill</span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              )}
+
               {billSummary.items.length === 0 ? (
                 <div className="text-center py-12 text-[#cbd5e1]">
                   <p className="font-cinzel text-base text-[#ffd700] mb-2">No Items Selected</p>
-                  <p className="text-xs mb-6">Choose items from the catalog to generate a bill.</p>
-                  <button
-                    onClick={() => setActiveTab('catalog')}
-                    className="btn-gold px-6 py-2.5 text-xs font-bold"
-                  >
-                    Browse Catalog →
-                  </button>
+                  <p className="text-xs mb-6">Choose items from the catalog or write a custom item manually.</p>
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => setActiveTab('catalog')}
+                      className="btn-gold px-6 py-2.5 text-xs font-bold"
+                    >
+                      Browse Catalog →
+                    </button>
+                    <button
+                      onClick={() => setShowManualItemForm(true)}
+                      className="btn-outline-gold px-6 py-2.5 text-xs font-bold"
+                    >
+                      + Write Custom Item
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -853,8 +1124,8 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                     <thead>
                       <tr className="border-b border-[#ffd700]/20 text-[#ffd700] font-cinzel text-[11px] uppercase tracking-wider">
                         <th className="py-3 px-2">#</th>
-                        <th className="py-3 px-4">Item Name</th>
-                        <th className="py-3 px-3 text-right">Price</th>
+                        <th className="py-3 px-4">Item Name / Description</th>
+                        <th className="py-3 px-3 text-right">Price (₹)</th>
                         <th className="py-3 px-3 text-center">Quantity</th>
                         <th className="py-3 px-3 text-right">Line Total</th>
                         <th className="py-3 px-2 text-center">Action</th>
@@ -864,30 +1135,80 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                       {billSummary.items.map((item, index) => (
                         <tr key={item.itemId} className="hover:bg-white/5">
                           <td className="py-3 px-2 text-gray-400">{index + 1}</td>
-                          <td className="py-3 px-4 font-semibold text-[#ffd700]">{item.name}</td>
-                          <td className="py-3 px-3 text-right">₹{item.rate.toLocaleString('en-IN')}</td>
+                          
+                          {/* Item Name (Editable if custom manual item) */}
+                          <td className="py-3 px-4 font-semibold text-[#ffd700]">
+                            {item.isManual ? (
+                              <input
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => handleManualItemNameChange(item.itemId, e.target.value)}
+                                className="w-full input-glass px-2 py-1 text-xs text-[#ffd700] font-bold"
+                              />
+                            ) : (
+                              <span>{item.name}</span>
+                            )}
+                          </td>
+                          
+                          {/* Price (Editable manually) */}
+                          <td className="py-3 px-3 text-right">
+                            {item.isManual ? (
+                              <input
+                                type="number"
+                                min="0"
+                                value={item.rate}
+                                onChange={(e) => handleManualItemRateChange(item.itemId, e.target.value)}
+                                className="w-20 text-right input-glass px-2 py-1 text-xs font-bold text-[#ffd700]"
+                              />
+                            ) : (
+                              <div className="inline-flex items-center gap-1">
+                                <span>₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.rate}
+                                  onChange={(e) => handleRateChange(item.itemId, e.target.value)}
+                                  className="w-20 text-right input-glass px-2 py-1 text-xs font-bold text-[#ffd700]"
+                                  title="Edit rate manually if needed"
+                                />
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Quantity (Editable manually with +/- buttons) */}
                           <td className="py-3 px-3">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
-                                onClick={() => adjustQuantity(item.itemId, -1)}
+                                onClick={() => item.isManual ? handleManualItemQtyChange(item.itemId, item.quantity - 1) : adjustQuantity(item.itemId, -1)}
                                 className="w-6 h-6 rounded bg-black/40 hover:bg-[#ffd700]/20 text-[#ffd700] flex items-center justify-center font-bold"
                               >
                                 -
                               </button>
-                              <span className="w-8 text-center font-bold text-[#ffd700]">
-                                {item.quantity}
-                              </span>
+                              
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => item.isManual ? handleManualItemQtyChange(item.itemId, e.target.value) : handleQuantityChange(item.itemId, e.target.value)}
+                                className="w-14 text-center font-bold text-[#ffd700] bg-black/60 border border-[#ffd700]/40 rounded-lg py-1 px-1 text-xs focus:border-[#ffd700] outline-none"
+                                onClick={(e) => e.target.select()}
+                              />
+
                               <button
-                                onClick={() => adjustQuantity(item.itemId, 1)}
+                                onClick={() => item.isManual ? handleManualItemQtyChange(item.itemId, item.quantity + 1) : adjustQuantity(item.itemId, 1)}
                                 className="w-6 h-6 rounded bg-black/40 hover:bg-[#ffd700]/20 text-[#ffd700] flex items-center justify-center font-bold"
                               >
                                 +
                               </button>
                             </div>
                           </td>
+
+                          {/* Line Total */}
                           <td className="py-3 px-3 text-right font-bold text-gold-gradient">
                             ₹{item.lineTotal.toLocaleString('en-IN')}
                           </td>
+
+                          {/* Action */}
                           <td className="py-3 px-2 text-center">
                             <button
                               onClick={() => removeItem(item.itemId)}
@@ -1030,13 +1351,20 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
               
               {/* Modal Header */}
               <div className="flex justify-between items-start border-b border-[#ffd700]/30 pb-4 mb-5">
-                <div>
-                  <h3 className="font-cinzel text-lg font-extrabold text-gold-gradient">
-                    ✦ Checking Bill Preview ✦
-                  </h3>
-                  <p className="text-[11px] text-[#cbd5e1]">
-                    G.Kamal Ganesha Works • Bangalore - 560077
-                  </p>
+                <div className="flex items-center gap-3">
+                  <img 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    className="w-12 h-12 rounded-full border border-[#ffd700] object-cover bg-black" 
+                  />
+                  <div>
+                    <h3 className="font-cinzel text-lg font-extrabold text-gold-gradient">
+                      ✦ Checking Bill Preview ✦
+                    </h3>
+                    <p className="text-[11px] text-[#cbd5e1]">
+                      G.Kamal Ganesha Works • Bangalore - 560077
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setIsPreviewOpen(false)}
@@ -1109,6 +1437,14 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                   <span className="text-red-300">Balance Due:</span>
                   <span className="text-red-400 font-cinzel font-black">₹{previewBillData.balanceDue.toLocaleString('en-IN')}</span>
                 </div>
+              </div>
+
+              {/* Devotional Seal in Modal */}
+              <div className="flex flex-col items-center justify-center my-3 py-1.5 border-t border-b border-[#ffd700]/20">
+                <img src="/logo.png" alt="Emblem" className="w-8 h-8 rounded-full border border-[#ffd700]/60 mb-1" />
+                <span className="font-cinzel text-[10px] text-[#ffd700] font-bold tracking-widest uppercase">
+                  || SHRI GANESHAYA NAMAH ||
+                </span>
               </div>
 
               {/* Modal Actions */}

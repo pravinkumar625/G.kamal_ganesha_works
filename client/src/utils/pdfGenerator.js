@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { LOGO_BASE64 } from '../assets/logoBase64';
 
 /**
  * Downloads a PDF using a Blob URL (works offline, no internet needed).
@@ -30,13 +31,6 @@ export const downloadPDFBlob = (doc, filename) => {
   }
 };
 
-/**
- * Generates a styled Bill PDF — fully offline, no internet required.
- * Uses only jsPDF built-in fonts (helvetica, times) — no CDN fonts.
- * @param {Object} order The order object containing details.
- * @param {string} watermarkText "CHECKING BILL" or "ORIGINAL — GANESHA BILL"
- * @param {boolean} isChecking If true, appends the checking bill footnote.
- */
 /**
  * Generates a styled Bill PDF — fully offline, no internet required.
  * Uses only jsPDF built-in fonts (helvetica, times) — no CDN fonts.
@@ -85,15 +79,23 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
   doc.rect(6.5, 6.5, pageWidth - 13, pageHeight - 13);
 
   // --- 3. HEADER SECTION ---
+  try {
+    if (LOGO_BASE64) {
+      doc.addImage(LOGO_BASE64, 'JPEG', 10.5, 8.5, 17, 17);
+    }
+  } catch (e) {
+    console.error('Failed to add logo image to PDF:', e);
+  }
+
   doc.setTextColor(107, 31, 31);
-  doc.setFontSize(17);
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('G.KAMAL GANESHA WORKS', 12, 18);
+  doc.text('G.KAMAL GANESHA WORKS', 29.5, 15.5);
 
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(160, 120, 20);
-  doc.text('PREMIUM CLAY IDOLS MANUFACTURER  |  BANGALORE', 12, 22.5);
+  doc.text('PREMIUM CLAY IDOLS MANUFACTURER  |  BANGALORE', 29.5, 21);
 
   // Top-right business info
   doc.setTextColor(60, 60, 60);
@@ -279,43 +281,22 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
   const ganeshaY = pageHeight - 34;
   const centerX = pageWidth / 2;
 
-  // Gold outer circle halo
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.4);
-  doc.circle(centerX, ganeshaY, 7, 'S');
-  doc.setFillColor(255, 248, 240);
-  doc.circle(centerX, ganeshaY, 6.6, 'F');
-
-  // Ganesha Ears (maroon arcs)
-  doc.setDrawColor(107, 31, 31);
-  doc.setLineWidth(0.4);
-  doc.ellipse(centerX - 2.6, ganeshaY - 1, 1.8, 2.5, 'S');
-  doc.ellipse(centerX + 2.6, ganeshaY - 1, 1.8, 2.5, 'S');
-
-  // Crown Mukut (Golden Triangle + Maroon Bindi)
-  doc.setFillColor(212, 175, 55);
-  doc.triangle(centerX - 2.2, ganeshaY - 2.2, centerX + 2.2, ganeshaY - 2.2, centerX, ganeshaY - 5.5, 'FD');
-  doc.setFillColor(107, 31, 31);
-  doc.circle(centerX, ganeshaY - 5.5, 0.5, 'F');
-
-  // Gold Tilak Lines
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.3);
-  doc.line(centerX - 1.2, ganeshaY - 1.5, centerX + 1.2, ganeshaY - 1.5);
-  doc.setFillColor(180, 30, 30);
-  doc.circle(centerX, ganeshaY - 0.8, 0.4, 'F');
-
-  // Trunk
-  doc.setDrawColor(107, 31, 31);
-  doc.setLineWidth(0.5);
-  doc.line(centerX, ganeshaY - 0.5, centerX, ganeshaY + 2);
-  doc.line(centerX, ganeshaY + 2, centerX - 1.2, ganeshaY + 3.2);
+  try {
+    if (LOGO_BASE64) {
+      doc.addImage(LOGO_BASE64, 'JPEG', centerX - 8, ganeshaY - 8, 16, 16);
+    }
+  } catch (e) {
+    // Fallback vector circle
+    doc.setDrawColor(212, 175, 55);
+    doc.setLineWidth(0.4);
+    doc.circle(centerX, ganeshaY, 7, 'S');
+  }
 
   // Devotional chant text
   doc.setTextColor(107, 31, 31);
-  doc.setFontSize(7);
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('||  SHRI GANESHAYA NAMAH  ||', centerX, ganeshaY + 8.5, { align: 'center' });
+  doc.text('||  SHRI GANESHAYA NAMAH  ||', centerX, ganeshaY + 10.5, { align: 'center' });
 
   // --- 8. FOOTER DISCLAIMER ---
   const footerY = pageHeight - 16;

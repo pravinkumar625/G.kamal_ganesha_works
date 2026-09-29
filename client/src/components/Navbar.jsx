@@ -52,8 +52,12 @@ const Navbar = () => {
           className="flex items-center gap-3 cursor-pointer select-none group"
         >
           <div className="relative">
-            <DiyaDecoration className="w-9 h-9 transform group-hover:scale-110 transition-transform duration-300" />
-            <div className="absolute inset-0 bg-[#ff6a00]/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <img 
+              src="/logo.png" 
+              alt="G.Kamal Ganesha Works Logo" 
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-[#ffd700] shadow-lg group-hover:scale-105 group-hover:border-[#ff9d00] transition-all duration-300 bg-black" 
+            />
+            <div className="absolute inset-0 bg-[#ffd700]/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
           </div>
           <div>
             <span className="block font-cinzel font-extrabold text-base sm:text-lg text-gold-gradient tracking-wider leading-tight">

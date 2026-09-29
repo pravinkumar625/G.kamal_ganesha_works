@@ -64,13 +64,23 @@ const LandingPage = () => {
           <Sparkles size={14} className="text-[#ff6a00]" />
         </div>
 
+        {/* Divine Hero Logo Emblem */}
+        <div className="relative mb-6 group cursor-pointer" onClick={() => navigate('/catalog')}>
+          <div className="absolute -inset-1.5 bg-gradient-to-r from-[#ffd700] via-[#ff6a00] to-[#ffd700] rounded-full blur-xl opacity-75 group-hover:opacity-100 transition duration-500 animate-pulse"></div>
+          <img 
+            src="/logo.png" 
+            alt="G.Kamal Ganesha Works" 
+            className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full object-cover border-4 border-[#ffd700] shadow-2xl transform group-hover:scale-105 transition-all duration-500 bg-black" 
+          />
+        </div>
+
         {/* Hero Title Group */}
         <div className="flex items-center justify-center gap-3 sm:gap-6 mb-4">
-          <DiyaDecoration className="w-10 h-10 sm:w-14 sm:h-14 animate-float" />
+          <DiyaDecoration className="w-8 h-8 sm:w-12 sm:h-12 animate-float" />
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-cinzel font-extrabold tracking-wider text-gold-gradient drop-shadow-2xl glow-text">
             G.Kamal Ganesha Works
           </h1>
-          <DiyaDecoration className="w-10 h-10 sm:w-14 sm:h-14 transform scale-x-[-1] animate-float" />
+          <DiyaDecoration className="w-8 h-8 sm:w-12 sm:h-12 transform scale-x-[-1] animate-float" />
         </div>
 
         <p className="text-[#ffebc2] text-xs sm:text-base max-w-2xl mx-auto font-medium tracking-wide mb-10 leading-relaxed">

@@ -9,11 +9,18 @@ const Footer = () => {
     <footer className="relative z-10 w-full mt-16 pb-8 pt-6 px-4">
       <div className="max-w-6xl mx-auto glass-panel p-6 sm:p-8 text-center border border-[#ffd700]/25 shadow-2xl relative overflow-hidden">
         
-        {/* Decorative Top Accent */}
-        <div className="flex justify-center items-center gap-3 mb-4">
-          <div className="h-[1px] w-16 bg-gradient-to-r from-transparent to-[#ffd700]"></div>
-          <span className="text-[#ffd700] text-sm animate-pulse">✦ ॐ ✦</span>
-          <div className="h-[1px] w-16 bg-gradient-to-l from-transparent to-[#ffd700]"></div>
+        {/* Brand Emblem & Logo */}
+        <div className="flex flex-col items-center justify-center mb-4">
+          <img 
+            src="/logo.png" 
+            alt="G.Kamal Ganesha Works Official Logo" 
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-[#ffd700]/70 shadow-2xl mb-2 hover:scale-105 transition-transform bg-black" 
+          />
+          <div className="flex justify-center items-center gap-3">
+            <div className="h-[1px] w-16 bg-gradient-to-r from-transparent to-[#ffd700]"></div>
+            <span className="text-[#ffd700] text-sm animate-pulse">✦ ॐ ✦</span>
+            <div className="h-[1px] w-16 bg-gradient-to-l from-transparent to-[#ffd700]"></div>
+          </div>
         </div>
 
         {/* Brand Name */}

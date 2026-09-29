@@ -69,7 +69,11 @@ const CustomerLoginPage = () => {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-3">
-              <DiyaDecoration className="w-12 h-12 animate-float" />
+              <img 
+                src="/logo.png" 
+                alt="G.Kamal Ganesha Works" 
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-[#ffd700] shadow-xl bg-black" 
+              />
             </div>
             <h2 className="font-cinzel text-2xl sm:text-3xl font-extrabold text-gold-gradient tracking-wide uppercase">
               Customer Portal

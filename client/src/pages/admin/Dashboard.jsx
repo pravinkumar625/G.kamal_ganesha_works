@@ -209,6 +209,15 @@ const AdminDashboard = () => {
   };
 
   // --- ADMIN CONFIRMED BILL GENERATOR METHODS ---
+  const handleBillQuantityChange = (itemId, val) => {
+    if (val === '' || val === null || val === undefined) {
+      setBillQuantities(prev => ({ ...prev, [itemId]: 0 }));
+      return;
+    }
+    const qty = Math.max(0, parseInt(val, 10) || 0);
+    setBillQuantities(prev => ({ ...prev, [itemId]: qty }));
+  };
+
   const adjustBillQuantity = (itemId, delta) => {
     const current = billQuantities[itemId] || 0;
     const newQty = Math.max(0, current + delta);
@@ -399,7 +408,11 @@ _Thank you for choosing eco-friendly clay idols!_`;
         {/* Header Dashboard Banner */}
         <div className="glass-panel p-6 sm:p-8 border border-[#ffd700]/30 shadow-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
-            <DiyaDecoration className="w-12 h-12 animate-float" />
+            <img 
+              src="/logo.png" 
+              alt="G.Kamal Ganesha Works" 
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#ffd700] shadow-xl bg-black"
+            />
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="font-cinzel text-xl sm:text-2xl font-extrabold text-gold-gradient tracking-wide uppercase">
@@ -915,9 +928,14 @@ _Thank you for choosing eco-friendly clay idols!_`;
                                   >
                                     -
                                   </button>
-                                  <span className="w-5 text-center font-bold text-xs text-[#ffd700]">
-                                    {qty}
-                                  </span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={qty > 0 ? qty : ''}
+                                    onChange={(e) => handleBillQuantityChange(item.id, e.target.value)}
+                                    className="w-10 text-center font-bold text-xs text-[#ffd700] bg-transparent outline-none"
+                                    onClick={(e) => e.target.select()}
+                                  />
                                   <button
                                     onClick={() => adjustBillQuantity(item.id, 1)}
                                     className="w-5 h-5 rounded bg-[#ffd700] text-black flex items-center justify-center font-bold text-xs"
@@ -975,7 +993,16 @@ _Thank you for choosing eco-friendly clay idols!_`;
                                   {it.name}
                                 </td>
                                 <td className="py-2 text-right text-gray-300">₹{it.rate.toLocaleString('en-IN')}</td>
-                                <td className="py-2 text-center text-[#ffd700] font-bold">{it.quantity}</td>
+                                <td className="py-2 text-center">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={it.quantity}
+                                    onChange={(e) => handleBillQuantityChange(it.itemId, e.target.value)}
+                                    className="w-12 text-center font-bold text-xs text-[#ffd700] bg-black/60 border border-[#ffd700]/30 rounded py-0.5 outline-none"
+                                    onClick={(e) => e.target.select()}
+                                  />
+                                </td>
                                 <td className="py-2 text-right font-bold text-gold-gradient">₹{it.lineTotal.toLocaleString('en-IN')}</td>
                                 <td className="py-2 text-center">
                                   <button
@@ -1179,13 +1206,20 @@ _Thank you for choosing eco-friendly clay idols!_`;
           <div className="glass-panel border-2 border-[#ffd700]/60 max-w-2xl w-full p-6 sm:p-8 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto relative">
             
             <div className="flex justify-between items-start border-b border-[#ffd700]/30 pb-4 mb-5">
-              <div>
-                <h3 className="font-cinzel text-lg font-extrabold text-gold-gradient">
-                  ✦ Confirmed Bill Preview ✦
-                </h3>
-                <p className="text-[11px] text-[#cbd5e1]">
-                  Official Tax / Delivery Invoice • G.Kamal Ganesha Works
-                </p>
+              <div className="flex items-center gap-3">
+                <img 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  className="w-12 h-12 rounded-full border border-[#ffd700] object-cover bg-black" 
+                />
+                <div>
+                  <h3 className="font-cinzel text-lg font-extrabold text-gold-gradient">
+                    ✦ Confirmed Bill Preview ✦
+                  </h3>
+                  <p className="text-[11px] text-[#cbd5e1]">
+                    Official Tax / Delivery Invoice • G.Kamal Ganesha Works
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsPreviewOpen(false)}
@@ -1246,6 +1280,14 @@ _Thank you for choosing eco-friendly clay idols!_`;
                 <span className="text-red-300">Balance Due:</span>
                 <span className="text-red-400 font-cinzel font-black">₹{previewBillData.balanceDue.toLocaleString('en-IN')}</span>
               </div>
+            </div>
+
+            {/* Devotional Seal in Modal */}
+            <div className="flex flex-col items-center justify-center my-3 py-1.5 border-t border-b border-[#ffd700]/20">
+              <img src="/logo.png" alt="Emblem" className="w-8 h-8 rounded-full border border-[#ffd700]/60 mb-1" />
+              <span className="font-cinzel text-[10px] text-[#ffd700] font-bold tracking-widest uppercase">
+                || SHRI GANESHAYA NAMAH ||
+              </span>
             </div>
 
             {/* Modal Actions */}
