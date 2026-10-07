@@ -49,133 +49,150 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
   const pageWidth = doc.internal.pageSize.getWidth();   // 210mm
   const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
 
-  // Watermark text rule:
-  // For checking bill: "CHECKING BILL"
-  // For finalized bill: "G.kamal ganesha works"
-  const actualWatermark = isChecking
-    ? 'CHECKING BILL'
-    : (watermarkText && !watermarkText.includes('ORIGINAL') ? watermarkText : 'G.kamal ganesha works');
-
-  // --- 1. WATERMARK BACKGROUND (Clipped strictly inside inner border) ---
+  // --- 1. CENTERED LOGO WATERMARK BACKGROUND ---
+  // (Replaces repeating diagonal text watermark with a clean centered logo watermark)
   doc.saveGraphicsState();
-  doc.rect(7, 7, pageWidth - 14, pageHeight - 14);
-  doc.clip();
-
-  doc.setTextColor(240, 232, 226);
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
-  for (let y = 18; y < pageHeight - 5; y += 38) {
-    for (let x = -10; x < pageWidth + 20; x += 75) {
-      doc.text(actualWatermark, x, y, { angle: 30 });
+  try {
+    if (LOGO_BASE64) {
+      if (typeof doc.GState === 'function') {
+        doc.setGState(new doc.GState({ opacity: 0.09 }));
+      }
+      const wmSize = 95; // 95mm centered logo
+      const wmX = (pageWidth - wmSize) / 2;
+      const wmY = (pageHeight - wmSize) / 2;
+      doc.addImage(LOGO_BASE64, 'JPEG', wmX, wmY, wmSize, wmSize);
     }
+  } catch (e) {
+    console.error('Logo watermark render error:', e);
   }
   doc.restoreGraphicsState();
 
-  // --- 2. GOLDEN BORDER ---
-  doc.setDrawColor(212, 175, 55);
+  // --- 2. GOLDEN BORDER (Matching Logo Theme) ---
+  doc.setDrawColor(212, 175, 55); // Rich Gold
   doc.setLineWidth(0.8);
   doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
   doc.setLineWidth(0.2);
   doc.rect(6.5, 6.5, pageWidth - 13, pageHeight - 13);
 
-  // --- 3. HEADER SECTION ---
+  // --- 3. HEADER SECTION WITH OFFICIAL LOGO & BRANDING ---
   try {
     if (LOGO_BASE64) {
-      doc.addImage(LOGO_BASE64, 'JPEG', 10.5, 8.5, 17, 17);
+      // Golden circle framed logo
+      doc.setFillColor(255, 248, 225);
+      doc.setDrawColor(212, 175, 55);
+      doc.setLineWidth(0.5);
+      doc.circle(19, 17, 9.5, 'FD');
+      doc.addImage(LOGO_BASE64, 'JPEG', 10, 8, 18, 18);
     }
   } catch (e) {
-    console.error('Failed to add logo image to PDF:', e);
+    console.error('Failed to add header logo image to PDF:', e);
   }
 
+  // Brand Name in Royal Maroon (#6B1F1F)
   doc.setTextColor(107, 31, 31);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('G.KAMAL GANESHA WORKS', 29.5, 15.5);
+  doc.text('G.KAMAL GANESHA WORKS', 31, 15.5);
 
+  // Subtitle in Deep Gold / Ochre
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(160, 120, 20);
-  doc.text('PREMIUM CLAY IDOLS MANUFACTURER  |  BANGALORE', 29.5, 21);
+  doc.setTextColor(180, 135, 20);
+  doc.text('PREMIUM CLAY IDOLS MANUFACTURER  |  BANGALORE', 31, 21);
 
-  // Top-right business info
+  // Business info on Top Right
   doc.setTextColor(60, 60, 60);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('Saraipalaya, Thanisandra Main Road', pageWidth - 12, 14, { align: 'right' });
-  doc.text('Vidyasagar, Bangalore - 560077', pageWidth - 12, 18, { align: 'right' });
+  doc.text('Saraipalaya, Thanisandra Main Road', pageWidth - 12, 13.5, { align: 'right' });
+  doc.text('Vidyasagar, Bangalore - 560077', pageWidth - 12, 17.5, { align: 'right' });
   doc.setFont('helvetica', 'bold');
-  doc.text('Ph: 9739142445 / 8792044625', pageWidth - 12, 22.5, { align: 'right' });
+  doc.setTextColor(107, 31, 31);
+  doc.text('Ph: 9739142445 / 8792044625', pageWidth - 12, 22, { align: 'right' });
 
-  // Divider
+  // Divider Line in Royal Maroon
   doc.setDrawColor(107, 31, 31);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.6);
   doc.line(10, 27, pageWidth - 10, 27);
 
-  // --- 4. BILL REFERENCE & CUSTOMER ---
-  // If checking bill, show "CHECKING BILL"; for finalized, no "ORIGINAL BILL" header (clean invoice format)
+  // --- 4. BILL TYPE & CUSTOMER DETAILS ---
+  let headerOffset = 33;
   if (isChecking) {
-    doc.setFontSize(10);
+    // Elegant Checking Bill Badge
+    doc.setFillColor(107, 31, 31);
+    doc.rect((pageWidth - 46) / 2, 28.5, 46, 6, 'F');
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(180, 50, 50);
-    doc.text('CHECKING BILL', pageWidth / 2, 33, { align: 'center' });
+    doc.setTextColor(255, 215, 0); // Gold text
+    doc.text('CHECKING BILL', pageWidth / 2, 32.8, { align: 'center' });
+    headerOffset = 39;
   }
 
-  // Customer info (left)
-  doc.setTextColor(80, 80, 80);
-  doc.setFontSize(8.5);
+  // Customer & Order Info Boxes with Warm Cream Background Tint
+  doc.setFillColor(255, 252, 245);
+  doc.setDrawColor(212, 175, 55);
+  doc.setLineWidth(0.2);
+
+  // Left Box: Bill To
+  doc.roundedRect(10, headerOffset, 92, 25, 2, 2, 'FD');
+  doc.setTextColor(107, 31, 31);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('BILL TO:', 12, 38);
-  doc.setFont('helvetica', 'normal');
+  doc.text('BILL TO / CUSTOMER:', 13, headerOffset + 4.5);
 
   const cust = order.customerDetails || {};
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text(cust.name || 'Customer', 12, 44);
+  doc.text(cust.name || 'Customer', 13, headerOffset + 9.5);
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(`Mobile: ${cust.mobile || 'N/A'}`, 12, 49);
-  if (cust.email) doc.text(`Email: ${cust.email}`, 12, 53.5);
+  doc.setFontSize(8);
+  doc.text(`Mobile: ${cust.mobile || 'N/A'}`, 13, headerOffset + 14.5);
 
-  const addressLines = cust.address
-    ? doc.splitTextToSize(`Address: ${cust.address}`, 95)
-    : ['Address: N/A'];
-  doc.text(addressLines, 12, cust.email ? 58 : 53.5);
+  const addressText = cust.address ? `Address: ${cust.address}` : 'Address: Bangalore';
+  const addressLines = doc.splitTextToSize(addressText, 86);
+  doc.text(addressLines[0], 13, headerOffset + 19.5);
 
-  // Order info (right)
+  // Right Box: Order Details
+  const rightBoxX = pageWidth - 102;
+  doc.roundedRect(rightBoxX, headerOffset, 92, 25, 2, 2, 'FD');
+  doc.setTextColor(107, 31, 31);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(80, 80, 80);
-  doc.text('ORDER DETAILS:', pageWidth - 12, 38, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
+  doc.text('ORDER DETAILS:', rightBoxX + 3, headerOffset + 4.5);
+
   doc.setTextColor(30, 30, 30);
-  doc.text(`Order ID: #${order.id || 'N/A'}`, pageWidth - 12, 44, { align: 'right' });
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Order ID: #${order.id || 'N/A'}`, rightBoxX + 3, headerOffset + 9.5);
+
   const orderDate = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString('en-IN')
     : new Date().toLocaleDateString('en-IN');
-  doc.text(`Date: ${orderDate}`, pageWidth - 12, 49, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Date: ${orderDate}`, rightBoxX + 3, headerOffset + 14.5);
 
-  const statusLabel = order.status === 'finalized' ? 'APPROVED' : 'PENDING REVIEW';
+  const statusLabel = order.status === 'finalized' ? 'APPROVED' : (isChecking ? 'ESTIMATE / CHECKING' : 'PENDING REVIEW');
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(order.status === 'finalized' ? 22 : 180, order.status === 'finalized' ? 120 : 80, order.status === 'finalized' ? 22 : 20);
-  doc.text(`Status: ${statusLabel}`, pageWidth - 12, 54, { align: 'right' });
+  doc.setTextColor(order.status === 'finalized' ? 22 : 180, order.status === 'finalized' ? 120 : 70, order.status === 'finalized' ? 22 : 20);
+  doc.text(`Status: ${statusLabel}`, rightBoxX + 3, headerOffset + 19.5);
 
-  // Divider
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.3);
-  doc.line(10, 65, pageWidth - 10, 65);
+  const currentYAfterCust = headerOffset + 29;
 
-  // --- 5. ITEMS TABLE ---
+  // --- 5. ITEMS TABLE (Logo Theme: Maroon Header, Gold Trim, Alternating Cream Rows) ---
   doc.setTextColor(107, 31, 31);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('ORDER ITEMS', 12, 71);
+  doc.text('ORDER ITEMS', 12, currentYAfterCust);
 
-  const tableStartY = 74;
+  const tableStartY = currentYAfterCust + 3;
+  // Header background in Royal Maroon
   doc.setFillColor(107, 31, 31);
   doc.rect(10, tableStartY, pageWidth - 20, 7.5, 'F');
 
-  doc.setTextColor(255, 253, 246);
+  // Header text in Bright Gold/Cream
+  doc.setTextColor(255, 235, 140); // Bright Gold Accent
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.text('#', 13, tableStartY + 5);
@@ -191,7 +208,7 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
   items.forEach((item, idx) => {
     const rowBg = idx % 2 === 1;
     if (rowBg) {
-      doc.setFillColor(255, 250, 238);
+      doc.setFillColor(255, 250, 240); // Soft Warm Cream
       doc.rect(10, currentY, pageWidth - 20, 7, 'F');
     }
 
@@ -208,16 +225,16 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
     const lineTotalVal = Number(item.lineTotal !== undefined && !isNaN(item.lineTotal) ? item.lineTotal : (rateVal * (item.quantity || 1)));
     doc.text(`Rs.${lineTotalVal.toLocaleString('en-IN')}`, pageWidth - 13, currentY + 5, { align: 'right' });
 
-    doc.setDrawColor(220, 210, 190);
+    doc.setDrawColor(230, 215, 185);
     doc.setLineWidth(0.1);
     doc.line(10, currentY + 7, pageWidth - 10, currentY + 7);
 
     currentY += 7;
   });
 
-  // Table bottom line
+  // Table bottom line in Royal Maroon
   doc.setDrawColor(107, 31, 31);
-  doc.setLineWidth(0.4);
+  doc.setLineWidth(0.5);
   doc.line(10, currentY, pageWidth - 10, currentY);
 
   // --- 6. TOTALS SUMMARY ---
@@ -247,7 +264,7 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
     }
 
     if (extraCharges > 0) {
-      doc.setTextColor(80, 40, 140);
+      doc.setTextColor(107, 31, 31);
       doc.text(`Extra Charges:`, summaryX, currentY);
       doc.text(`+ Rs.${extraCharges.toLocaleString('en-IN')}`, pageWidth - 13, currentY, { align: 'right' });
       currentY += 6;
@@ -257,28 +274,33 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
 
   // Grand Total
   doc.setTextColor(60, 60, 60);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.text('Grand Total:', summaryX, currentY);
   doc.text(`Rs.${Number(order.grandTotal || 0).toLocaleString('en-IN')}`, pageWidth - 13, currentY, { align: 'right' });
   currentY += 6;
 
   // Advance Paid
   doc.setTextColor(22, 120, 22);
+  doc.setFont('helvetica', 'normal');
   doc.text('Advance Received:', summaryX, currentY);
   doc.text(`- Rs.${Number(order.advancePayment || 0).toLocaleString('en-IN')}`, pageWidth - 13, currentY, { align: 'right' });
   currentY += 7;
 
-  // Balance Due (highlighted box)
-  doc.setFillColor(255, 235, 235);
-  doc.rect(summaryX - 2, currentY - 4.5, pageWidth - summaryX - 10, 7, 'F');
-  doc.setTextColor(107, 31, 31);
+  // Balance Due (Royal Maroon & Gold Highlighted Box matching logo theme)
+  doc.setFillColor(107, 31, 31);
+  doc.roundedRect(summaryX - 3, currentY - 5, pageWidth - summaryX - 7, 8, 1, 1, 'F');
+  doc.setDrawColor(212, 175, 55);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(summaryX - 3, currentY - 5, pageWidth - summaryX - 7, 8, 1, 1, 'S');
+
+  doc.setTextColor(255, 215, 0); // Gold text
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('BALANCE DUE:', summaryX, currentY);
-  doc.text(`Rs.${Number(order.balanceDue || 0).toLocaleString('en-IN')}`, pageWidth - 13, currentY, { align: 'right' });
+  doc.text('BALANCE DUE:', summaryX, currentY + 0.5);
+  doc.text(`Rs.${Number(order.balanceDue || 0).toLocaleString('en-IN')}`, pageWidth - 13, currentY + 0.5, { align: 'right' });
 
-  // --- 7. DOWNSIDE GANESHA EMBLEM / ICON ---
-  const ganeshaY = pageHeight - 34;
+  // --- 7. DOWNSIDE GANESHA EMBLEM & DEVOTIONAL CHANT ---
+  const ganeshaY = pageHeight - 32;
   const centerX = pageWidth / 2;
 
   try {
@@ -286,37 +308,35 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
       doc.addImage(LOGO_BASE64, 'JPEG', centerX - 8, ganeshaY - 8, 16, 16);
     }
   } catch (e) {
-    // Fallback vector circle
     doc.setDrawColor(212, 175, 55);
     doc.setLineWidth(0.4);
     doc.circle(centerX, ganeshaY, 7, 'S');
   }
 
-  // Devotional chant text
   doc.setTextColor(107, 31, 31);
-  doc.setFontSize(7.5);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.text('||  SHRI GANESHAYA NAMAH  ||', centerX, ganeshaY + 10.5, { align: 'center' });
 
-  // --- 8. FOOTER DISCLAIMER ---
-  const footerY = pageHeight - 16;
+  // --- 8. FOOTER ---
+  const footerY = pageHeight - 14;
 
   if (isChecking) {
     doc.setTextColor(180, 50, 50);
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
     doc.text('** THIS IS A CHECKING BILL — NOT FOR PAYMENT **', pageWidth / 2, footerY - 5, { align: 'center' });
   }
 
   doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.4);
   doc.line(10, footerY - 1, pageWidth - 10, footerY - 1);
 
-  doc.setTextColor(130, 130, 130);
+  doc.setTextColor(120, 120, 120);
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.text('All rights reserved © G.Kamal Ganesha Works', pageWidth / 2, footerY + 3, { align: 'center' });
-  doc.text('G.Kamal: 9739142445  |  Pravin Kumar: 8792044625', pageWidth / 2, footerY + 7.5, { align: 'center' });
+  doc.text('G.Kamal: 9739142445  |  Pravin Kumar: 8792044625', pageWidth / 2, footerY + 7, { align: 'center' });
 
   return doc;
 };

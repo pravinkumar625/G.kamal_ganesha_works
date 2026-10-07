@@ -1280,7 +1280,7 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
                     </div>
 
                     <p className="text-[11px] text-gray-400 italic">
-                      * Watermark "CHECKING BILL" will be embedded automatically across the entire bill document.
+                      * Official G.Kamal Ganesha Works logo watermark embedded in center of PDF.
                     </p>
                   </div>
 
@@ -1377,7 +1377,7 @@ _Generated from G.Kamal Ganesha Works Official Portal_`;
               {/* Watermark Banner */}
               <div className="mb-4 py-2 px-4 bg-amber-500/15 border border-amber-500/40 rounded-xl text-center">
                 <span className="font-cinzel text-xs font-bold text-[#ffd700] tracking-widest uppercase">
-                  WATERMARK: CHECKING BILL
+                  ✦ OFFICIAL CENTERED LOGO WATERMARK EMBEDDED ✦
                 </span>
               </div>
 
