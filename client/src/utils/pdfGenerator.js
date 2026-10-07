@@ -49,18 +49,19 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
   const pageWidth = doc.internal.pageSize.getWidth();   // 210mm
   const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
 
-  // --- 1. CENTERED LOGO WATERMARK BACKGROUND ---
-  // (Replaces repeating diagonal text watermark with a clean centered logo watermark)
+  // --- 1. FULL PAGE LOGO WATERMARK BACKGROUND ---
+  // (Scales official logo to fill whole page background with light subtle opacity)
   doc.saveGraphicsState();
   try {
     if (LOGO_BASE64) {
       if (typeof doc.GState === 'function') {
-        doc.setGState(new doc.GState({ opacity: 0.09 }));
+        doc.setGState(new doc.GState({ opacity: 0.075 }));
       }
-      const wmSize = 95; // 95mm centered logo
-      const wmX = (pageWidth - wmSize) / 2;
-      const wmY = (pageHeight - wmSize) / 2;
-      doc.addImage(LOGO_BASE64, 'JPEG', wmX, wmY, wmSize, wmSize);
+      const wmWidth = 185;  // 185mm wide (spans whole page background)
+      const wmHeight = 185; // 185mm high
+      const wmX = (pageWidth - wmWidth) / 2;
+      const wmY = (pageHeight - wmHeight) / 2;
+      doc.addImage(LOGO_BASE64, 'JPEG', wmX, wmY, wmWidth, wmHeight);
     }
   } catch (e) {
     console.error('Logo watermark render error:', e);
@@ -115,7 +116,7 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
   doc.setLineWidth(0.6);
   doc.line(10, 27, pageWidth - 10, 27);
 
-  // --- 4. BILL TYPE & CUSTOMER DETAILS ---
+  // --- 4. BILL TYPE & CUSTOMER / ORDER DETAILS ---
   let headerOffset = 33;
   if (isChecking) {
     // Elegant Checking Bill Badge
@@ -125,60 +126,68 @@ export const generateBillPDF = (order, watermarkText, isChecking = true) => {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 215, 0); // Gold text
     doc.text('CHECKING BILL', pageWidth / 2, 32.8, { align: 'center' });
-    headerOffset = 39;
+    headerOffset = 38.5;
   }
 
-  // Customer & Order Info Boxes with Warm Cream Background Tint
-  doc.setFillColor(255, 252, 245);
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.2);
+  const boxWidth = (pageWidth - 26) / 2; // 92mm width each
+  const boxHeight = 26;
 
-  // Left Box: Bill To
-  doc.roundedRect(10, headerOffset, 92, 25, 2, 2, 'FD');
-  doc.setTextColor(107, 31, 31);
+  // --- LEFT BOX: BILL TO / CUSTOMER ---
+  doc.setFillColor(255, 252, 245); // Warm Cream background fill
+  doc.setDrawColor(212, 175, 55);  // Gold border
+  doc.setLineWidth(0.3);
+  doc.roundedRect(10, headerOffset, boxWidth, boxHeight, 2, 2, 'FD');
+
+  doc.setTextColor(107, 31, 31); // Royal Maroon Title
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('BILL TO / CUSTOMER:', 13, headerOffset + 4.5);
+  doc.text('BILL TO / CUSTOMER:', 13, headerOffset + 5);
 
   const cust = order.customerDetails || {};
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(20, 20, 20); // Dark text
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text(cust.name || 'Customer', 13, headerOffset + 9.5);
+  doc.text(cust.name || 'Customer', 13, headerOffset + 10.5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`Mobile: ${cust.mobile || 'N/A'}`, 13, headerOffset + 14.5);
+  doc.text(`Mobile: ${cust.mobile || 'N/A'}`, 13, headerOffset + 15.5);
 
   const addressText = cust.address ? `Address: ${cust.address}` : 'Address: Bangalore';
-  const addressLines = doc.splitTextToSize(addressText, 86);
-  doc.text(addressLines[0], 13, headerOffset + 19.5);
+  const addressLines = doc.splitTextToSize(addressText, boxWidth - 6);
+  doc.text(addressLines[0], 13, headerOffset + 20.5);
 
-  // Right Box: Order Details
-  const rightBoxX = pageWidth - 102;
-  doc.roundedRect(rightBoxX, headerOffset, 92, 25, 2, 2, 'FD');
-  doc.setTextColor(107, 31, 31);
+  // --- RIGHT BOX: ORDER DETAILS ---
+  const rightBoxX = 10 + boxWidth + 6;
+
+  doc.setFillColor(255, 252, 245); // Explicit Warm Cream background fill!
+  doc.setDrawColor(212, 175, 55);  // Gold border
+  doc.setLineWidth(0.3);
+  doc.roundedRect(rightBoxX, headerOffset, boxWidth, boxHeight, 2, 2, 'FD');
+
+  doc.setTextColor(107, 31, 31); // Royal Maroon Title
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('ORDER DETAILS:', rightBoxX + 3, headerOffset + 4.5);
+  doc.text('ORDER DETAILS:', rightBoxX + 3, headerOffset + 5);
 
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(20, 20, 20); // Crisp dark text
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Order ID: #${order.id || 'N/A'}`, rightBoxX + 3, headerOffset + 9.5);
+  doc.text(`Order ID: #${order.id || 'N/A'}`, rightBoxX + 3, headerOffset + 10.5);
 
   const orderDate = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString('en-IN')
     : new Date().toLocaleDateString('en-IN');
   doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${orderDate}`, rightBoxX + 3, headerOffset + 14.5);
+  doc.setFontSize(8);
+  doc.text(`Date: ${orderDate}`, rightBoxX + 3, headerOffset + 15.5);
 
   const statusLabel = order.status === 'finalized' ? 'APPROVED' : (isChecking ? 'ESTIMATE / CHECKING' : 'PENDING REVIEW');
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(order.status === 'finalized' ? 22 : 180, order.status === 'finalized' ? 120 : 70, order.status === 'finalized' ? 22 : 20);
-  doc.text(`Status: ${statusLabel}`, rightBoxX + 3, headerOffset + 19.5);
+  doc.text(`Status: ${statusLabel}`, rightBoxX + 3, headerOffset + 20.5);
 
-  const currentYAfterCust = headerOffset + 29;
+  const currentYAfterCust = headerOffset + 30;
 
   // --- 5. ITEMS TABLE (Logo Theme: Maroon Header, Gold Trim, Alternating Cream Rows) ---
   doc.setTextColor(107, 31, 31);
